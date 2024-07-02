@@ -271,6 +271,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
                 sin_cis_img=None,
                 return_dict=True,
                 controls=None,
+                pose_embedding=None,
                 ):
         """
         Forward pass of the encoder.
@@ -338,6 +339,9 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
         # Concatenate all extra vectors
         c = t + self.extra_embedder(extra_vec)  # [B, D]
 
+        # add condition
+        if pose_embedding is not None:
+            x = x + pose_embedding
         # ========================= Forward pass through HunYuanDiT blocks =========================
         skips = []
         for layer, block in enumerate(self.blocks):
@@ -501,8 +505,11 @@ def DiT_g_2(args, **kwargs):
     return HunYuanDiT(args, depth=40, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
 def DiT_XL_2(args, **kwargs):
     return HunYuanDiT(args, depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs)
+def DiT_g_2_ref(args, **kwargs):
+    return HunYuanDiT(args, depth=10, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
 
 HUNYUAN_DIT_MODELS = {
     'DiT-g/2':  DiT_g_2,
     'DiT-XL/2': DiT_XL_2,
+    'DiT-g/2-ref': DiT_g_2_ref,
 }

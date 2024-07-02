@@ -148,6 +148,7 @@ def get_args(default_args=None):
                         help="if true, initialize the ema with Module weights.")
 
     # Dataset
+    parser.add_argument("--data-config", type=str, default=None, help="Data config file.")
     parser.add_argument("--index-file", type=str, nargs='+', help="During training, provide a JSON file with data indices.")
     parser.add_argument("--random-flip", action="store_true", help="Random flip image")
     parser.add_argument("--reset-loader", action="store_true",
@@ -179,7 +180,7 @@ def get_args(default_args=None):
     parser.add_argument("--no-flash-attn", dest="use_flash_attn",
                         action="store_false", help="During training, flash attention is not used to accelerate training.")
     parser.add_argument("--use-zero-stage", type=int, default=1, help="Use AngelPTM zero stage. Support 2 and 3")
-    parser.add_argument("--grad-accu-steps", type=int, default=1, help="Gradient accumulation steps.")
+    parser.add_argument("--grad-accu-steps", type=int, default=0, help="Gradient accumulation steps.")
 
     # ========================================================================================================
     # Deepspeed config

@@ -4,14 +4,14 @@ index_file=dataset/porcelain/jsons/porcelain.json            # index file for da
 results_dir=./log_EXP                                        # save root for results
 batch_size=1                                                 # training batch size
 image_size=1024                                              # training image resolution
-grad_accu_steps=1                                            # gradient accumulation
+grad_accu_steps=0                                            # gradient accumulation
 warmup_num_steps=0                                           # warm-up steps
 lr=0.0001                                                    # learning rate
 ckpt_every=1500                                             # create a ckpt every a few steps.
 ckpt_latest_every=5000                                       # create a ckpt named `latest.pt` every a few steps.
 
 
-sh $(dirname "$0")/run_g.sh \
+sh $(dirname "$0")/run_g_human_animation.sh \
     --task-flag ${task_flag} \
     --noise-schedule scaled_linear --beta-start 0.00085 --beta-end 0.03 \
     --predict-type v_prediction \
@@ -27,6 +27,7 @@ sh $(dirname "$0")/run_g.sh \
     --warmup-num-steps ${warmup_num_steps} \
     --use-flash-attn \
     --use-fp16 \
+    --use-ema \
     --ema-dtype fp32 \
     --results-dir ${results_dir} \
     --resume-split \

@@ -230,15 +230,28 @@ class TextImageArrowStream(Dataset):
         else:
             description = self.get_text(ind)
 
+        # description = ''
         # Get text for t5
         if random.random() < self.uncond_p_t5:
             description_t5 = ""
         else:
             description_t5 = self.get_text(ind)
+        # description_t5 = ''
 
         original_pil_image, kwargs = self.get_image_with_hwxy(ind)
 
         # Use encoder to embed tokens online
+        # if description == '':
+        #     text_embedding = torch.load('empty_prompt_resources/text_embedding.pt', map_location='cpu')
+        #     text_embedding_mask = torch.load('empty_prompt_resources/text_embedding_mask.pt', map_location='cpu')
+        # else:
+        #     text, text_embedding, text_embedding_mask = self.get_text_info_with_encoder(description)
+
+        # if description_t5 == '':
+        #     text_embedding_t5 = torch.load('empty_prompt_resources/text_embedding_t5.pt', map_location='cpu')
+        #     text_embedding_mask_t5 = torch.load('empty_prompt_resources/text_embedding_mask_t5.pt', map_location='cpu')
+        # else:
+        #     text_t5, text_embedding_t5, text_embedding_mask_t5 = self.get_text_info_with_encoder_t5(description_t5)
         text, text_embedding, text_embedding_mask = self.get_text_info_with_encoder(description)
 
         text_t5, text_embedding_t5, text_embedding_mask_t5 = self.get_text_info_with_encoder_t5(description_t5)

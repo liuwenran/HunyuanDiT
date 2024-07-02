@@ -137,3 +137,7 @@ trt/activate.sh
 trt/deactivate.sh
 *.onnx
 ckpts/
+dataset/jade/
+dataset/porcelain/
+empty_prompt_resources/
+log_EXP/

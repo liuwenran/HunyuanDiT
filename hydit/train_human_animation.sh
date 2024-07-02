@@ -3,7 +3,7 @@ resume=./ckpts/t2i/model/                                    # checkpoint root f
 index_file=dataset/porcelain/jsons/porcelain.json            # index file for dataloader
 results_dir=./log_EXP                                        # save root for results
 batch_size=1                                                 # training batch size
-image_size=1024                                              # training image resolution
+image_size="512 896"                                                  # training image resolution
 grad_accu_steps=1                                            # gradient accumulation
 warmup_num_steps=0                                           # warm-up steps
 lr=0.0001                                                    # learning rate
@@ -11,7 +11,7 @@ ckpt_every=1500                                             # create a ckpt ever
 ckpt_latest_every=5000                                       # create a ckpt named `latest.pt` every a few steps.
 
 
-sh $(dirname "$0")/run_g.sh \
+sh $(dirname "$0")/run_g_human_animation.sh \
     --task-flag ${task_flag} \
     --noise-schedule scaled_linear --beta-start 0.00085 --beta-end 0.03 \
     --predict-type v_prediction \
@@ -38,4 +38,6 @@ sh $(dirname "$0")/run_g.sh \
     --deepspeed-optimizer \
     --use-zero-stage 2 \
     --epochs 10 \
+    --reso-step 32 \
+    --data-config ./dataset/human_animation_yamls/stage1_pose1024.yaml \
     "$@"

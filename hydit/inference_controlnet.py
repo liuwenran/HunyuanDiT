@@ -224,6 +224,8 @@ class End2End(object):
                                                 log_fn=logger.info,
                                                 ).half().to(self.device)
             controlnet_state_dict = torch.load(controlnet_path)
+            state_dict_to_load = {k:controlnet_state_dict[k] for k in controlnet_state_dict.keys() if k.startswith("x_embedder") or k.startswith('before_proj')}
+            import ipdb;ipdb.set_trace();
             self.controlnet.load_state_dict(controlnet_state_dict)
             logger.info(f"Loading controlnet finished")
             # Load model checkpoint

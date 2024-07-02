@@ -28,13 +28,117 @@ from hydit.diffusion import create_diffusion
 from hydit.ds_config import deepspeed_config_from_args
 from hydit.modules.ema import EMA
 from hydit.modules.fp16_layers import Float16Module
-from hydit.modules.models import HUNYUAN_DIT_MODELS
+from hydit.modules.models import HUNYUAN_DIT_MODELS, HunYuanDiT
 from hydit.modules.posemb_layers import init_image_posemb
-from hydit.utils.tools import create_logger, set_seeds, create_exp_folder, model_resume, get_trainable_params
+from hydit.utils.tools import create_logger, set_seeds, create_exp_folder, model_resume, get_trainable_params, model_copy_to_reference_net
 from IndexKits.index_kits import ResolutionGroup
 from IndexKits.index_kits.sampler import DistributedSamplerWithStartIndex, BlockDistributedSampler
 from peft import LoraConfig, get_peft_model
+from hydit.modules.pose_guider import PoseGuider
+from hydit.modules.mutual_self_attention import ReferenceAttentionControl
+from hydit.datasets.human_animation_image import HumanAnimationImageDataset
+from hydit.datasets.multi_task_batch_sampler import BatchSchedulerSampler
+from omegaconf import OmegaConf
+from torch.utils.data.dataset import ConcatDataset
+from torchviz import make_dot
 
+class Net(nn.Module):
+    def __init__(
+        self,
+        reference_unet: HunYuanDiT,
+        denoising_unet: HunYuanDiT,
+        pose_guider: PoseGuider,
+        reference_control_writer,
+        reference_control_reader,
+        ref_pose_guider=None,
+        hand_depth_guider=None,
+    ):
+        super().__init__()
+        self.reference_unet = reference_unet
+        self.denoising_unet = denoising_unet
+        self.pose_guider = pose_guider
+        self.reference_control_writer = reference_control_writer
+        self.reference_control_reader = reference_control_reader
+        self.ref_pose_guider = ref_pose_guider
+        self.hand_depth_guider = hand_depth_guider
+
+    def forward(
+        self,
+        x,
+        t,
+        ref_latents,
+        tgt_pose_latents,
+        encoder_hidden_states=None,
+        text_embedding_mask=None,
+        encoder_hidden_states_t5=None,
+        text_embedding_mask_t5=None,
+        image_meta_size=None,
+        style=None,
+        cos_cis_img=None,
+        sin_cis_img=None,
+        return_dict=True,
+        controls=None,
+        uncond_fwd: bool = False,
+        ref_pose_img=None,
+        hand_depth_img=None,
+    ):
+        pose_embedding = self.pose_guider(tgt_pose_latents)
+        if self.ref_pose_guider:
+            ref_pose_cond_tensor = ref_pose_img.to(device="cuda")
+            ref_pose_fea = self.ref_pose_guider(ref_pose_cond_tensor)
+            ref_pose_fea = ref_pose_fea.squeeze(dim=2)
+        else:
+            ref_pose_fea = None
+        
+        if self.hand_depth_guider:
+            hand_depth_cond_tensor = hand_depth_img.to(device="cuda")
+            hand_depth_fea = self.hand_depth_guider(hand_depth_cond_tensor)
+
+        if not uncond_fwd:
+            ref_timesteps = torch.zeros_like(t)
+            ref_pred = self.reference_unet(
+                ref_latents,
+                ref_timesteps,
+                encoder_hidden_states=encoder_hidden_states,
+                text_embedding_mask=text_embedding_mask,
+                encoder_hidden_states_t5=encoder_hidden_states_t5,
+                text_embedding_mask_t5=text_embedding_mask_t5,
+                image_meta_size=image_meta_size,
+                style=style,
+                cos_cis_img=cos_cis_img,
+                sin_cis_img=sin_cis_img,
+                return_dict=return_dict,
+                controls=controls,
+            )
+            
+            self.reference_control_reader.update(self.reference_control_writer)
+
+        model_pred = self.denoising_unet(
+            x,
+            t,
+            encoder_hidden_states=encoder_hidden_states,
+            text_embedding_mask=text_embedding_mask,
+            encoder_hidden_states_t5=encoder_hidden_states_t5,
+            text_embedding_mask_t5=text_embedding_mask_t5,
+            image_meta_size=image_meta_size,
+            style=style,
+            cos_cis_img=cos_cis_img,
+            sin_cis_img=sin_cis_img,
+            return_dict=return_dict,
+            controls=controls,
+            pose_embedding=pose_embedding,
+        )
+
+        # result = {}
+        # result['x'] = model_pred['x'] + ref_pred['x']
+        # return result
+        return model_pred
+
+def print_tensor_info(tensor, tensor_name, file):
+    file.write(f"Tensor name: {tensor_name}\n")
+    file.write(f"Tensor: {tensor}\n")
+    file.write(f"grad_fn: {tensor.grad_fn}\n")
+    file.write("-" * 50 + "\n")
 
 def deepspeed_initialize(args, logger, model, opt, deepspeed_config):
     logger.info(f"Initialize deepspeed...")
@@ -108,29 +212,26 @@ def save_checkpoint(args, rank, logger, model, ema, epoch, train_steps, checkpoi
     return checkpoint_path
 
 @torch.no_grad()
-def prepare_model_inputs(args, batch, device, vae, text_encoder, text_encoder_t5, freqs_cis_img):
-    image, text_embedding, text_embedding_mask, text_embedding_t5, text_embedding_mask_t5, kwargs = batch
-
-    # clip & mT5 text embedding
-    text_embedding = text_embedding.to(device)
-    text_embedding_mask = text_embedding_mask.to(device)
-    encoder_hidden_states = text_encoder(
-        text_embedding.to(device),
-        attention_mask=text_embedding_mask.to(device),
-    )[0]
-    text_embedding_t5 = text_embedding_t5.to(device).squeeze(1)
-    text_embedding_mask_t5 = text_embedding_mask_t5.to(device).squeeze(1)
-    with torch.no_grad():
-        output_t5 = text_encoder_t5(
-            input_ids=text_embedding_t5,
-            attention_mask=text_embedding_mask_t5 if T5_ENCODER['attention_mask'] else None,
-            output_hidden_states=True
-        )
-        encoder_hidden_states_t5 = output_t5['hidden_states'][T5_ENCODER['layer_index']].detach()
-
+def prepare_model_inputs(args, batch, device, vae, freqs_cis_img):
+    image = batch['img']
+    tgt_pose = batch['tgt_pose']
+    ref_image = batch['ref_img']
     # additional condition
-    image_meta_size = kwargs['image_meta_size'].to(device)
-    style = kwargs['style'].to(device)
+    image_meta_size = batch['image_meta_size'].to(device)
+    style = batch['style'].to(device)
+
+    batch_size = image.shape[0]
+
+    # encoder_hidden_states.shape torch.Size([1, 77, 1024])
+    # encoder_hidden_states_t5.shape  torch.Size([1, 256, 2048])
+    encoder_hidden_states = torch.load('empty_prompt_resources/encoder_hidden_states.pt').to(device)
+    encoder_hidden_states = encoder_hidden_states.repeat(batch_size, 1, 1)
+    encoder_hidden_states_t5 = torch.load('empty_prompt_resources/encoder_hidden_states_t5.pt').to(device)
+    encoder_hidden_states_t5 = encoder_hidden_states_t5.repeat(batch_size, 1, 1)
+    text_embedding_mask = torch.load('empty_prompt_resources/text_embedding_mask.pt').to(device)
+    text_embedding_mask = text_embedding_mask.repeat(batch_size, 1)
+    text_embedding_mask_t5 = torch.load('empty_prompt_resources/text_embedding_mask_t5.pt').to(device)
+    text_embedding_mask_t5 = text_embedding_mask_t5.repeat(batch_size, 1)
 
     if args.extra_fp16:
         image = image.half()
@@ -140,6 +241,10 @@ def prepare_model_inputs(args, batch, device, vae, text_encoder, text_encoder_t5
     image = image.to(device)
     vae_scaling_factor = vae.config.scaling_factor
     latents = vae.encode(image).latent_dist.sample().mul_(vae_scaling_factor)
+    ref_image = ref_image.to(device)
+    ref_latents = vae.encode(ref_image).latent_dist.sample().mul_(vae_scaling_factor)
+    tgt_pose = tgt_pose.to(device)
+    tgt_pose_latents = vae.encode(tgt_pose).latent_dist.sample().mul_(vae_scaling_factor)
 
     # positional embedding
     _, _, height, width = image.shape
@@ -156,15 +261,11 @@ def prepare_model_inputs(args, batch, device, vae, text_encoder, text_encoder_t5
         style=style,
         cos_cis_img=cos_cis_img,
         sin_cis_img=sin_cis_img,
+        ref_latents=ref_latents,
+        tgt_pose_latents=tgt_pose_latents,
     )
 
     return latents, model_kwargs
-
-def print_tensor_info(tensor, tensor_name, file):
-    file.write(f"Tensor name: {tensor_name}\n")
-    file.write(f"Tensor: {tensor}\n")
-    file.write(f"grad_fn: {tensor.grad_fn}\n")
-    file.write("-" * 50 + "\n")
 
 def main(args):
     if args.training_parts == "lora":
@@ -226,25 +327,65 @@ def main(args):
                                                               f"got {image_size}"
     latent_size = [image_size[0] // 8, image_size[1] // 8]
 
-    # initialize model by deepspeed
+    # initialize model by deepspeed 
+    model = HUNYUAN_DIT_MODELS[args.model](args,
+                                    input_size=latent_size,
+                                    log_fn=logger.info,
+                                    )
+
+    model_reference = HUNYUAN_DIT_MODELS['DiT-g/2-ref'](args,
+                                        input_size=latent_size,
+                                        log_fn=logger.info,
+                                        )
+    
+    pose_guider = PoseGuider()
+    
+    hidden_size = model.hidden_size
+    num_tokens = model.x_embedder.num_patches
+
+    reference_control_writer = ReferenceAttentionControl(
+        model_reference,
+        do_classifier_free_guidance=False,
+        mode="write",
+        fusion_blocks="full",
+        batch_size=batch_size,
+        hidden_size=hidden_size,
+        num_tokens=num_tokens,
+    )
+    reference_control_reader = ReferenceAttentionControl(
+        model,
+        do_classifier_free_guidance=False,
+        mode="read",
+        fusion_blocks="full",
+        batch_size=batch_size,
+        hidden_size=hidden_size,
+        num_tokens=num_tokens,
+    )
+
     assert args.deepspeed, f"Must enable deepspeed in this script: train_deepspeed.py"
     with deepspeed.zero.Init(data_parallel_group=torch.distributed.group.WORLD,
                              remote_device=None if args.remote_device == 'none' else args.remote_device,
                              config_dict_or_path=deepspeed_config,
                              mpu=None,
                              enabled=args.zero_stage == 3):
-        model = HUNYUAN_DIT_MODELS[args.model](args,
-                                       input_size=latent_size,
-                                       log_fn=logger.info,
-                                        )
+
+        net = Net(
+            model_reference,
+            model,
+            pose_guider,
+            reference_control_writer,
+            reference_control_reader,
+        )
+
     # Multi-resolution / Single-resolution training.
+    base_size = (image_size[0] + image_size[1]) // 2
     if args.multireso:
-        resolutions = ResolutionGroup(image_size[0],
+        resolutions = ResolutionGroup(base_size,
                                       align=16,
                                       step=args.reso_step,
                                       target_ratios=args.target_ratios).data
     else:
-        resolutions = ResolutionGroup(image_size[0],
+        resolutions = ResolutionGroup(base_size,
                                       align=16,
                                       target_ratios=['1:1']).data
 
@@ -258,14 +399,11 @@ def main(args):
                                       )
 
     # Create EMA model and convert to fp16 if needed.
-    ema = None
+
+    ema, ema_reference = None, None
     if args.use_ema:
         ema = EMA(args, model, device, logger)
-
-    # Setup FP16 main model:
-    if args.use_fp16:
-        model = Float16Module(model, args)
-    logger.info(f"    Using main model with data type {'fp16' if args.use_fp16 else 'fp32'}")
+        ema_reference = EMA(args, model_reference, device, logger)
 
     diffusion = create_diffusion(
         noise_schedule=args.noise_schedule,
@@ -280,28 +418,12 @@ def main(args):
     # Setup VAE
     logger.info(f"    Loading vae from {VAE_EMA_PATH}")
     vae = AutoencoderKL.from_pretrained(VAE_EMA_PATH)
-    # Setup BERT text encoder
-    logger.info(f"    Loading Bert text encoder from {TEXT_ENCODER}")
-    text_encoder = BertModel.from_pretrained(TEXT_ENCODER, False, revision=None)
-    # Setup BERT tokenizer:
-    logger.info(f"    Loading Bert tokenizer from {TOKENIZER}")
-    tokenizer = BertTokenizer.from_pretrained(TOKENIZER)
-    # Setup T5 text encoder
-    from hydit.modules.text_encoder import MT5Embedder
-    mt5_path = T5_ENCODER['MT5']
-    embedder_t5 = MT5Embedder(mt5_path, torch_dtype=T5_ENCODER['torch_dtype'], max_length=args.text_len_t5)
-    tokenizer_t5 = embedder_t5.tokenizer
-    text_encoder_t5 = embedder_t5.model
 
     if args.extra_fp16:
         logger.info(f"    Using fp16 for extra modules: vae, text_encoder")
         vae = vae.half().to(device)
-        text_encoder = text_encoder.half().to(device)
-        text_encoder_t5 = text_encoder_t5.half().to(device)
     else:
         vae = vae.to(device)
-        text_encoder = text_encoder.to(device)
-        text_encoder_t5 = text_encoder_t5.to(device)
 
     logger.info(f"    Optimizer parameters: lr={args.lr}, weight_decay={args.weight_decay}")
     logger.info("    Using deepspeed optimizer")
@@ -314,70 +436,68 @@ def main(args):
     logger.info(f"Building Streaming Dataset.")
     logger.info(f"    Loading index file {args.index_file} (v2)")
 
-    dataset = TextImageArrowStream(args=args,
-                                   resolution=image_size[0],
-                                   random_flip=args.random_flip,
-                                   log_fn=logger.info,
-                                   index_file=args.index_file,
-                                   multireso=args.multireso,
-                                   batch_size=batch_size,
-                                   world_size=world_size,
-                                   random_shrink_size_cond=args.random_shrink_size_cond,
-                                   merge_src_cond=args.merge_src_cond,
-                                   uncond_p=args.uncond_p,
-                                   text_ctx_len=args.text_len,
-                                   tokenizer=tokenizer,
-                                   uncond_p_t5=args.uncond_p_t5,
-                                   text_ctx_len_t5=args.text_len_t5,
-                                   tokenizer_t5=tokenizer_t5,
-                                   )
-    if args.multireso:
-        sampler = BlockDistributedSampler(dataset, num_replicas=world_size, rank=rank, seed=args.global_seed,
-                                          shuffle=False, drop_last=True, batch_size=batch_size)
-    else:
-        sampler = DistributedSamplerWithStartIndex(dataset, num_replicas=world_size, rank=rank, seed=args.global_seed,
-                                                   shuffle=False, drop_last=True)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, sampler=sampler,
-                        num_workers=args.num_workers, pin_memory=True, drop_last=True)
+    cfg = OmegaConf.load(args.data_config)
+    dataset1 = HumanAnimationImageDataset(data_config=cfg.data, img_size=(cfg.data.train_width, cfg.data.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
+    dataset2 = HumanAnimationImageDataset(data_config=cfg.data2, img_size=(cfg.data2.train_width, cfg.data2.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
+    dataset_list = [dataset1, dataset2]
+    if 'data3' in cfg.keys():
+        dataset3 = HumanAnimationImageDataset(data_config=cfg.data3, img_size=(cfg.data3.train_width, cfg.data3.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
+        dataset_list.append(dataset3)
+    if 'data4' in cfg.keys():
+        dataset4 = HumanAnimationImageDataset(data_config=cfg.data4, img_size=(cfg.data4.train_width, cfg.data4.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
+        dataset_list.append(dataset4)
+
+    dataset = ConcatDataset(dataset_list)
+
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, sampler=BatchSchedulerSampler(dataset, batch_size=batch_size), shuffle=False, num_workers=0
+    )
+
     logger.info(f"    Dataset contains {len(dataset):,} images.")
-    logger.info(f"    Index file: {args.index_file}.")
-    if args.multireso:
-        logger.info(f'    Using MultiResolutionBucketIndexV2 with step {dataset.index_manager.step} '
-                    f'and base size {dataset.index_manager.base_size}')
-        logger.info(f'\n  {dataset.index_manager.resolutions}')
 
     # ===========================================================================
     # Loading parameter
     # ===========================================================================
-
     logger.info(f"Loading parameter")
     start_epoch = 0
     start_epoch_step = 0
     train_steps = 0
     # Resume checkpoint if needed
+    args.strict = False
+    import ipdb;ipdb.set_trace();
     if args.resume is not None or len(args.resume) > 0:
         model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
 
-    if args.training_parts == "lora":
-        loraconfig = LoraConfig(
-            r=args.rank,
-            lora_alpha=args.rank,
-            target_modules=args.target_modules
-        )
-        if args.use_fp16:
-            model.module = get_peft_model(model.module, loraconfig)
+    model, model_reference = model_copy_to_reference_net(model, model_reference)
+
+    # # setup pose guider
+    pose_guider_dict = torch.load('weights/pose_guider.pt')
+    pose_guider.load_state_dict(pose_guider_dict)
+
+    if args.use_fp16:
+        net = Float16Module(net, args)
+
+    model_reference_block_end_ind = len(model_reference.blocks)
+    grad_no_need_layers = [f'blocks.{model_reference_block_end_ind}.attn2', 
+                           f'blocks.{model_reference_block_end_ind}.norm3',
+                           f'blocks.{model_reference_block_end_ind}.norm2',
+                           f'blocks.{model_reference_block_end_ind}.mlp']
+    # only ban final layer for easy
+    for name, param in model_reference.named_parameters():
+        if 'final_layer' in name:
+            param.requires_grad_(False)
         else:
-            model = get_peft_model(model, loraconfig)
-        
+            param.requires_grad_(True)
+
     logger.info(f"    Training parts: {args.training_parts}")
-    
-    model, opt, scheduler = deepspeed_initialize(args, logger, model, opt, deepspeed_config)
+
+    net, opt, scheduler = deepspeed_initialize(args, logger, net, opt, deepspeed_config)
 
     # ===========================================================================
     # Training
     # ===========================================================================
 
-    model.train()
+    net.train()
     if args.use_ema:
         ema.eval()
 
@@ -434,51 +554,51 @@ def main(args):
     for epoch in range(start_epoch, args.epochs):
         logger.info(f"    Start random shuffle with seed={seed}")
         # Makesure all processors use the same seed to shuffle dataset.
-        dataset.shuffle(seed=args.global_seed + epoch, fast=True)
         logger.info(f"    End of random shuffle")
-
-        # Move sampler to start_index
-        if not args.multireso:
-            start_index = start_epoch_step * world_size * batch_size
-            if start_index != sampler.start_index:
-                sampler.start_index = start_index
-                # Reset start_epoch_step to zero, to ensure next epoch will start from the beginning.
-                start_epoch_step = 0
-                logger.info(f"      Iters left this epoch: {len(loader):,}")
 
         logger.info(f"    Beginning epoch {epoch}...")
         step = 0
         for batch in loader:
             step += 1
 
-            latents, model_kwargs = prepare_model_inputs(args, batch, device, vae, text_encoder, text_encoder_t5, freqs_cis_img)
+            # import ipdb; ipdb.set_trace();
+            latents, model_kwargs = prepare_model_inputs(args, batch, device, vae, freqs_cis_img)
 
             # training model by deepspeed while use fp16
-            import ipdb;ipdb.set_trace();
             if args.use_fp16:
                 if args.use_ema and args.async_ema:
                     with torch.cuda.stream(ema_stream):
                         ema.update(model.module.module, step=step)
+                        ema_reference.update(model_reference.module.module, step=step)
                     torch.cuda.current_stream().wait_stream(ema_stream)
 
+            loss_dict = diffusion.training_losses(model=net, x_start=latents, model_kwargs=model_kwargs)
+            loss = loss_dict["loss"].mean()
+            
             if step == 1 or step % 10 == 0:
                 print_times = f'step_{step}'
-                print_file = open(f"tensor_info_origin_train_{print_times}.txt", "w")
-                for name, param in model.named_parameters():
+                print_file = open(f"tensor_info_denoising_{print_times}.txt", "w")
+                for name, param in net.named_parameters():
                     print_tensor_info(param, f"Model parameter {name}", print_file)
                 print_file.close()
 
-            loss_dict = diffusion.training_losses(model=model, x_start=latents, model_kwargs=model_kwargs)
-            loss = loss_dict["loss"].mean()
-            model.backward(loss)
+                # print_file = open(f"tensor_info_reference_{print_times}.txt", "w")
+                # for name, param in net.module.module.reference_unet.final_layer.linear.named_parameters():
+                # # for name, param in net.module.module.final_layer.linear.named_parameters():
+                #     print_tensor_info(param, f"Model parameter {name}", print_file)
+                # print_file.close()
+
+            net.backward(loss)
             last_batch_iteration = (train_steps + 1) // (global_batch_size // (batch_size * world_size))
-            model.step(lr_kwargs={'last_batch_iteration': last_batch_iteration})
+            net.step(lr_kwargs={'last_batch_iteration': last_batch_iteration})
 
             if args.use_ema and not args.async_ema or (args.async_ema and step == len(loader)-1):
                 if args.use_fp16:
                     ema.update(model.module.module, step=step)
+                    ema_reference.update(model_reference.module.module, step=step)
                 else:
                     ema.update(model.module, step=step)
+                    ema_reference.update(model_reference.module, step=step)
 
             # ===========================================================================
             # Log loss values:
@@ -486,6 +606,10 @@ def main(args):
             running_loss += loss.item()
             log_steps += 1
             train_steps += 1
+
+            reference_control_reader.clear()
+            reference_control_writer.clear()
+
             if train_steps % args.log_every == 0:
                 # Measure training speed:
                 torch.cuda.synchronize()

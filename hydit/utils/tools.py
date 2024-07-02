@@ -106,6 +106,39 @@ def create_exp_folder(args, rank):
 
     return experiment_dir, checkpoint_dir, logger
 
+def model_load_state_dict(model, resume_path, args):
+    """
+    Load model state dict.
+    """
+    assert 'pytorch_model_module.pt' in os.listdir(
+            resume_path), f'    Cannot find pytorch_model_module.pt from {resume_path}'
+    resume_ckpt_module = torch.load(os.path.join(resume_path, 'pytorch_model_module.pt'),
+                                            map_location=lambda storage, loc: storage)
+    model.load_state_dict(resume_ckpt_module, strict=args.strict)
+    return model
+
+def model_copy_to_reference_net(model, model_reference):
+    model_blocks_depth = len(model.blocks)
+    model_reference_blocks_depth = len(model_reference.blocks)
+    start_ind = (model_blocks_depth - model_reference_blocks_depth) // 2
+    param_dict = {}
+    for name, param in model.named_parameters():
+        if 'blocks' in name:
+            name_split = name.split('.')
+            blocks_ind = int(name_split[1])
+            if blocks_ind >= start_ind and blocks_ind < start_ind + model_reference_blocks_depth:
+                save_ind = blocks_ind - start_ind
+                name_split[1] = str(save_ind)
+                save_name = '.'.join(name_split)
+                param_dict[save_name] = param
+        else:
+            param_dict[name] = param
+    for bank_ind in range(0, model_reference_blocks_depth):
+        bank_name = f'blocks.{bank_ind}.bank'
+        bank_param = model.blocks[bank_ind + start_ind].bank
+        param_dict[bank_name] = bank_param
+    model_reference.load_state_dict(param_dict)
+    return model, model_reference
 
 def model_resume(args, model, ema, logger, len_loader):
     """

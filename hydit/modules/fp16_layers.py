@@ -62,7 +62,7 @@ class Float16Module(torch.nn.Module):
 
         self.float16_convertor = float16_convertor
 
-        self.config = self.module.config
+        # self.config = self.module.config
         self.dtype = torch.float16
 
     def forward(self, *inputs, **kwargs):

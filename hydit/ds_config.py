@@ -48,7 +48,7 @@ def deepspeed_config_from_args(args, global_batch_size):
 
     elif args.use_zero_stage == 3:
         deepspeed_config = {
-            "train_batch_size": args.global_batch_size,
+            "train_batch_size": global_batch_size,
             # "train_micro_batch_size_per_gpu": args.batch_size,
             "gradient_accumulation_steps": args.grad_accu_steps,
             "steps_per_print": args.log_every,
