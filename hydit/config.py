@@ -74,6 +74,7 @@ def get_args(default_args=None):
     # Basic Setting
     parser.add_argument("--prompt", type=str, default="一只小猫", help="The prompt for generating images.")
     parser.add_argument("--model-root", type=str, default="ckpts", help="Model root path.")
+    parser.add_argument("--model-path", type=str, default=None, help="Model trained file .pt path")
 
     # Model setting
     parser.add_argument("--load-key", type=str, choices=["ema", "module", "distill", 'merge'], default="ema", help="Load model key for HunYuanDiT checkpoint.")

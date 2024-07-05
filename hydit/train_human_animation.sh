@@ -1,13 +1,13 @@
-task_flag="dit_g2_full_1024p"                                # the task flag is used to identify folders.
+task_flag="ref_net_equal"                                # the task flag is used to identify folders.
 resume=./ckpts/t2i/model/                                    # checkpoint root for resume
 index_file=dataset/porcelain/jsons/porcelain.json            # index file for dataloader
 results_dir=./log_EXP                                        # save root for results
-batch_size=1                                                 # training batch size
+batch_size=4                                                 # training batch size
 image_size="512 896"                                                  # training image resolution
 grad_accu_steps=1                                            # gradient accumulation
 warmup_num_steps=0                                           # warm-up steps
 lr=0.0001                                                    # learning rate
-ckpt_every=1500                                             # create a ckpt every a few steps.
+ckpt_every=2000                                              # create a ckpt every a few steps.
 ckpt_latest_every=5000                                       # create a ckpt named `latest.pt` every a few steps.
 
 

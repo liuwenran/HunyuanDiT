@@ -1,0 +1,14 @@
+reference_image_path: [
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop/IMG_5389.JPG"
+]
+pose_image_path: [
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5389.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5391.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5392.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5393.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5394.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5395.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5396.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5397.jpg",
+    "/mnt/hwfile/mm_lol/liuwenran/test_and_eval/moore_test_case/redbook/redbook_pose_half_human_crop_pose/IMG_5398.jpg"
+]

@@ -41,6 +41,7 @@ from hydit.datasets.multi_task_batch_sampler import BatchSchedulerSampler
 from omegaconf import OmegaConf
 from torch.utils.data.dataset import ConcatDataset
 from torchviz import make_dot
+import shutil
 
 class Net(nn.Module):
     def __init__(
@@ -48,8 +49,8 @@ class Net(nn.Module):
         reference_unet: HunYuanDiT,
         denoising_unet: HunYuanDiT,
         pose_guider: PoseGuider,
-        reference_control_writer,
-        reference_control_reader,
+        reference_control_writer=None,
+        reference_control_reader=None,
         ref_pose_guider=None,
         hand_depth_guider=None,
     ):
@@ -204,15 +205,21 @@ def save_checkpoint(args, rank, logger, model, ema, epoch, train_steps, checkpoi
 
     dist.barrier()
     if rank == 0 and len(dst_paths) > 0:
+        folders = [folder for folder in os.listdir(checkpoint_dir) if os.path.isdir(os.path.join(checkpoint_dir, folder))]
+        folders_to_delete = [folder for folder in folders if "latest" not in folder]
+        sorted_folders = sorted(folders_to_delete, key=lambda x: int(x.split(".")[0]))
+        for folder in sorted_folders[:-1]:
+            folder_path = os.path.join(checkpoint_dir, folder)
+            shutil.rmtree(folder_path)
         # Delete optimizer states to avoid occupying too much disk space.
         for dst_path in dst_paths:
-            for opt_state_path in glob(f"{dst_path}/zero_dp_rank_*_tp_rank_00_pp_rank_00_optim_states.pt"):
+            for opt_state_path in glob(f"{dst_path}/zero_pp_rank_*_mp_rank_00_optim_states.pt"):
                 os.remove(opt_state_path)
 
     return checkpoint_path
 
 @torch.no_grad()
-def prepare_model_inputs(args, batch, device, vae, freqs_cis_img):
+def prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5):
     image = batch['img']
     tgt_pose = batch['tgt_pose']
     ref_image = batch['ref_img']
@@ -221,17 +228,6 @@ def prepare_model_inputs(args, batch, device, vae, freqs_cis_img):
     style = batch['style'].to(device)
 
     batch_size = image.shape[0]
-
-    # encoder_hidden_states.shape torch.Size([1, 77, 1024])
-    # encoder_hidden_states_t5.shape  torch.Size([1, 256, 2048])
-    encoder_hidden_states = torch.load('empty_prompt_resources/encoder_hidden_states.pt').to(device)
-    encoder_hidden_states = encoder_hidden_states.repeat(batch_size, 1, 1)
-    encoder_hidden_states_t5 = torch.load('empty_prompt_resources/encoder_hidden_states_t5.pt').to(device)
-    encoder_hidden_states_t5 = encoder_hidden_states_t5.repeat(batch_size, 1, 1)
-    text_embedding_mask = torch.load('empty_prompt_resources/text_embedding_mask.pt').to(device)
-    text_embedding_mask = text_embedding_mask.repeat(batch_size, 1)
-    text_embedding_mask_t5 = torch.load('empty_prompt_resources/text_embedding_mask_t5.pt').to(device)
-    text_embedding_mask_t5 = text_embedding_mask_t5.repeat(batch_size, 1)
 
     if args.extra_fp16:
         image = image.half()
@@ -273,8 +269,12 @@ def main(args):
 
     assert torch.cuda.is_available(), "Training currently requires at least one GPU."
 
-    dist.init_process_group("nccl")
+    # dist.init_process_group("nccl")
+    deepspeed.init_distributed()
+
     world_size = dist.get_world_size()
+    print('world_size')
+    print(world_size)
     batch_size = args.batch_size
     grad_accu_steps = args.grad_accu_steps
     global_batch_size = world_size * batch_size * grad_accu_steps
@@ -291,6 +291,9 @@ def main(args):
     deepspeed_config = deepspeed_config_from_args(args, global_batch_size)
 
     # Setup an experiment folder
+    if rank == 0:
+        print('show args')
+        print(args)
     experiment_dir, checkpoint_dir, logger = create_exp_folder(args, rank)
 
     # Log all the arguments
@@ -299,8 +302,9 @@ def main(args):
     # Save to a json file
     args_dict = vars(args)
     args_dict['world_size'] = world_size
-    with open(f"{experiment_dir}/args.json", 'w') as f:
-        json.dump(args_dict, f, indent=4)
+    if rank == 0:
+        with open(f"{experiment_dir}/args.json", 'w') as f:
+            json.dump(args_dict, f, indent=4)
 
     # Disable the message "Some weights of the model checkpoint at ... were not used when initializing BertModel."
     # If needed, just comment the following line.
@@ -333,7 +337,7 @@ def main(args):
                                     log_fn=logger.info,
                                     )
 
-    model_reference = HUNYUAN_DIT_MODELS['DiT-g/2-ref'](args,
+    model_reference = HUNYUAN_DIT_MODELS[args.model](args,
                                         input_size=latent_size,
                                         log_fn=logger.info,
                                         )
@@ -450,7 +454,7 @@ def main(args):
     dataset = ConcatDataset(dataset_list)
 
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, sampler=BatchSchedulerSampler(dataset, batch_size=batch_size), shuffle=False, num_workers=0
+        dataset, batch_size=batch_size, sampler=BatchSchedulerSampler(dataset, batch_size=batch_size), shuffle=False, num_workers=4
     )
 
     logger.info(f"    Dataset contains {len(dataset):,} images.")
@@ -463,16 +467,17 @@ def main(args):
     start_epoch_step = 0
     train_steps = 0
     # Resume checkpoint if needed
+    logger.info(" ****************************** Loading parameter ******************************")
     args.strict = False
-    import ipdb;ipdb.set_trace();
     if args.resume is not None or len(args.resume) > 0:
         model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
 
     model, model_reference = model_copy_to_reference_net(model, model_reference)
 
     # # setup pose guider
-    pose_guider_dict = torch.load('weights/pose_guider.pt')
+    pose_guider_dict = torch.load('weights/pose_guider.pt', map_location=lambda storage, loc: storage)
     pose_guider.load_state_dict(pose_guider_dict)
+    del pose_guider_dict
 
     if args.use_fp16:
         net = Float16Module(net, args)
@@ -550,6 +555,17 @@ def main(args):
     if args.async_ema:
         ema_stream = torch.cuda.Stream()
 
+    # encoder_hidden_states.shape torch.Size([1, 77, 1024])
+    # encoder_hidden_states_t5.shape  torch.Size([1, 256, 2048])
+    encoder_hidden_states = torch.load('empty_prompt_resources/encoder_hidden_states.pt', map_location="cpu").to(device)
+    encoder_hidden_states = encoder_hidden_states.repeat(batch_size, 1, 1)
+    encoder_hidden_states_t5 = torch.load('empty_prompt_resources/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
+    encoder_hidden_states_t5 = encoder_hidden_states_t5.repeat(batch_size, 1, 1)
+    text_embedding_mask = torch.load('empty_prompt_resources/text_embedding_mask.pt', map_location="cpu").to(device)
+    text_embedding_mask = text_embedding_mask.repeat(batch_size, 1)
+    text_embedding_mask_t5 = torch.load('empty_prompt_resources/text_embedding_mask_t5.pt', map_location="cpu").to(device)
+    text_embedding_mask_t5 = text_embedding_mask_t5.repeat(batch_size, 1)
+
     # Training loop
     for epoch in range(start_epoch, args.epochs):
         logger.info(f"    Start random shuffle with seed={seed}")
@@ -561,8 +577,7 @@ def main(args):
         for batch in loader:
             step += 1
 
-            # import ipdb; ipdb.set_trace();
-            latents, model_kwargs = prepare_model_inputs(args, batch, device, vae, freqs_cis_img)
+            latents, model_kwargs = prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5)
 
             # training model by deepspeed while use fp16
             if args.use_fp16:
@@ -575,18 +590,12 @@ def main(args):
             loss_dict = diffusion.training_losses(model=net, x_start=latents, model_kwargs=model_kwargs)
             loss = loss_dict["loss"].mean()
             
-            if step == 1 or step % 10 == 0:
-                print_times = f'step_{step}'
-                print_file = open(f"tensor_info_denoising_{print_times}.txt", "w")
-                for name, param in net.named_parameters():
-                    print_tensor_info(param, f"Model parameter {name}", print_file)
-                print_file.close()
-
-                # print_file = open(f"tensor_info_reference_{print_times}.txt", "w")
-                # for name, param in net.module.module.reference_unet.final_layer.linear.named_parameters():
-                # # for name, param in net.module.module.final_layer.linear.named_parameters():
-                #     print_tensor_info(param, f"Model parameter {name}", print_file)
-                # print_file.close()
+            # if step == 1 or step % 10 == 0:
+            #     print_times = f'step_{step}'
+            #     print_file = open(f"tensor_info_denoising_{print_times}.txt", "w")
+            #     for name, param in net.named_parameters():
+            #         print_tensor_info(param, f"Model parameter {name}", print_file)
+            #     print_file.close()
 
             net.backward(loss)
             last_batch_iteration = (train_steps + 1) // (global_batch_size // (batch_size * world_size))
@@ -637,7 +646,7 @@ def main(args):
 
             if (train_steps % args.ckpt_every == 0 or train_steps % args.ckpt_latest_every == 0  # or train_steps == args.max_training_steps
                 ) and train_steps > 0:
-                save_checkpoint(args, rank, logger, model, ema, epoch, train_steps, checkpoint_dir)
+                save_checkpoint(args, rank, logger, net, ema, epoch, train_steps, checkpoint_dir)
 
             if train_steps >= args.max_training_steps:
                 logger.info(f"Breaking step loop at {train_steps}.")

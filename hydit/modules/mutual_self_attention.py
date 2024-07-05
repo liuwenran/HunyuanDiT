@@ -6,6 +6,7 @@ from einops import rearrange
 
 # from .attention import BasicTransformerBlock, TemporalBasicTransformerBlock
 from .models import HunYuanDiTBlock
+import torch.nn as nn
 
 def torch_dfs(model: torch.nn.Module):
     result = [model]
@@ -13,6 +14,10 @@ def torch_dfs(model: torch.nn.Module):
         result += torch_dfs(child)
     return result
 
+def zero_module(module):
+    for p in module.parameters():
+        nn.init.zeros_(p)
+    return module
 
 class ReferenceAttentionControl:
     def __init__(
@@ -38,8 +43,10 @@ class ReferenceAttentionControl:
             mode,
             do_classifier_free_guidance,
             reference_attn,
-            fusion_blocks,
+            fusion_blocks=fusion_blocks,
             batch_size=batch_size,
+            device=self.unet.device,
+            dtype=self.unet.dtype,
         )
 
 
@@ -268,6 +275,7 @@ class ReferenceAttentionControl:
             if MODE == "write":
                 # self.bank.append(x.clone())
                 self.bank = x
+                # self.bank = self.bank_proj(x)
 
             if MODE == "read":
                 # x = x + self.bank[0]
@@ -308,7 +316,9 @@ class ReferenceAttentionControl:
 
                 # module.bank = []
                 module.register_buffer('bank', torch.zeros(batch_size, self.num_tokens, self.hidden_size))
-                module.attn_weight = float(i) / float(len(attn_modules))
+                module.bank = module.bank.to(dtype=dtype, device=device)
+                # if MODE == "write":
+                #     module.bank_proj = zero_module(nn.Linear(self.hidden_size, self.hidden_size))
 
     def update(self, writer, dtype=torch.float16):
         if self.reference_attn:
@@ -331,6 +341,16 @@ class ReferenceAttentionControl:
             writer_attn_modules = sorted(
                 writer_attn_modules, key=lambda x: -x.norm1.normalized_shape[0]
             )
+            # reader_attn_modules_names = []
+            # for r in reader_attn_modules:
+            #     module_name = next(name for name, module in self.unet.named_modules() if module is r)
+            #     reader_attn_modules_names.append(module_name)
+            
+            # writer_attn_modules_names = []
+            # for w in writer_attn_modules:
+            #     module_name = next(name for name, module in writer.unet.named_modules() if module is w)
+            #     writer_attn_modules_names.append(module_name)
+
             start_ind = len(reader_attn_modules) // 2 - len(writer_attn_modules) // 2
             reader_attn_modules_to_update = reader_attn_modules[start_ind:start_ind + len(writer_attn_modules)]
             for r, w in zip(reader_attn_modules_to_update, writer_attn_modules):
