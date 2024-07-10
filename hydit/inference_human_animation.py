@@ -208,14 +208,26 @@ class End2End(object):
                                         log_fn=logger.info,
                                         )
 
-        # model_setting = args.model
-        model_setting = 'DiT-g/2-ref'
+        model_setting = args.model
+        # model_setting = 'DiT-g/2-ref10'
         model_reference = HUNYUAN_DIT_MODELS[model_setting](args,
                                             input_size=latent_size,
                                             log_fn=logger.info,
                                             )
         
         pose_guider = PoseGuider()
+
+        hidden_size = model.hidden_size
+        num_tokens = model.x_embedder.num_patches
+        reference_control_writer = ReferenceAttentionControl(
+            model_reference,
+            do_classifier_free_guidance=True,
+            mode="write",
+            batch_size=4,
+            fusion_blocks="full",
+            hidden_size=hidden_size,
+            num_tokens=num_tokens,
+        )
         net = Net(
             model_reference,
             model,
@@ -239,12 +251,18 @@ class End2End(object):
             #                         ).half().to(self.device)    # Force to use fp16
 
             # Load model checkpoint
-            logger.info(f"Loading torch model {model_path}...")
+            # logger.info(f"Loading torch model {model_path}...")
+            # state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
+            # model.load_state_dict(state_dict)
+
+            # logger.info(f"Loading torch model {model_path}...")
             state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
             state_dict = state_dict['module']
             state_dict_to_load = {}
             for key in state_dict.keys():
-                if 'bank' not in key:
+                if 'bank' in key and 'denoising' in key:
+                    pass
+                else:
                     state_dict_to_load[key] = state_dict[key]
             net.load_state_dict(state_dict_to_load)
 
@@ -304,6 +322,7 @@ class End2End(object):
                                          self.tokenizer,
                                          self.model,
                                          self.model_reference,
+                                        #  None,
                                          self.pose_guider,
                                          device=self.device,
                                          rank=0,

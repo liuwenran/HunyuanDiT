@@ -33,7 +33,7 @@ if __name__ == "__main__":
     logger.info("Generating images...")
     height, width = args.image_size
     for ref_image_path in infer_data_cfg.reference_image_path:
-        for pose_image_path in infer_data_cfg.pose_image_path:
+        for pose_ind, pose_image_path in enumerate(infer_data_cfg.pose_image_path):
             ref_image = Image.open(ref_image_path).convert("RGB")
             pose_image = Image.open(pose_image_path).convert("RGB")
             results = gen.predict(ref_image,
@@ -41,7 +41,7 @@ if __name__ == "__main__":
                                 args.prompt,
                                 height=height,
                                 width=width,
-                                seed=args.seed,
+                                seed=pose_ind,
                                 enhanced_prompt=enhanced_prompt,
                                 negative_prompt=args.negative,
                                 infer_steps=args.infer_steps,

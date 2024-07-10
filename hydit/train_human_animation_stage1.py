@@ -42,6 +42,8 @@ from omegaconf import OmegaConf
 from torch.utils.data.dataset import ConcatDataset
 from torchviz import make_dot
 import shutil
+from PIL import Image
+from hydit.diffusion.pipeline_human_animation import StableDiffusionPipeline
 
 class Net(nn.Module):
     def __init__(
@@ -130,9 +132,6 @@ class Net(nn.Module):
             pose_embedding=pose_embedding,
         )
 
-        # result = {}
-        # result['x'] = model_pred['x'] + ref_pred['x']
-        # return result
         return model_pred
 
 def print_tensor_info(tensor, tensor_name, file):
@@ -263,6 +262,113 @@ def prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden
 
     return latents, model_kwargs
 
+
+def validation(args, model, model_reference, pose_guider, vae, image_enc, target_width, target_height, image_meta_size, freqs_cis_img, val_save_dir, global_step, sampler=None):
+    from .constants import SAMPLER_FACTORY, NEGATIVE_PROMPT, TRT_MAX_WIDTH, TRT_MAX_HEIGHT, TRT_MAX_BATCH_SIZE
+    from diffusers import schedulers
+
+    generator = torch.Generator(device=model.device).manual_seed(42)
+    # cast unet dtype
+    vae = vae.to(dtype=torch.float32)
+    image_enc = image_enc.to(dtype=torch.float32)
+
+    sampler = sampler or args.sampler
+
+    # Load sampler from factory
+    kwargs = SAMPLER_FACTORY[sampler]['kwargs']
+    scheduler = SAMPLER_FACTORY[sampler]['scheduler']
+
+    # Update sampler according to the arguments
+    kwargs['beta_schedule'] = args.noise_schedule
+    kwargs['beta_start'] = args.beta_start
+    kwargs['beta_end'] = args.beta_end
+    kwargs['prediction_type'] = args.predict_type
+
+    # Build scheduler according to the sampler.
+    scheduler_class = getattr(schedulers, scheduler)
+    scheduler = scheduler_class(**kwargs)
+
+    # Set timesteps for inference steps.
+    scheduler.set_timesteps(args.infer_steps, model.device)
+
+    pipeline = StableDiffusionPipeline(vae=vae,
+                                       text_encoder=None,
+                                       tokenizer=None,
+                                       unet=model,
+                                       reference_unet=model_reference,
+                                       pose_guider=pose_guider,
+                                       scheduler=scheduler,
+                                       feature_extractor=None,
+                                       safety_checker=None,
+                                       requires_safety_checker=False,
+                                       progress_bar_config={},
+                                       embedder_t5={},
+                                       infer_mode='torch',
+                                       )
+    
+
+    ref_image_paths = open(args.validation_ref_images, 'r').readlines()
+    tgt_image_paths = open(args.validation_tgt_images, 'r').readlines()
+
+    pil_images = []
+    for ind in range(len(ref_image_paths)):
+        for tgt_ind in range(len(tgt_image_paths)):
+
+            ref_image_path = ref_image_paths[ind].strip()
+            tgt_image_path = tgt_image_paths[tgt_ind].strip()
+
+            ref_name = ref_image_path.split("/")[-1].split('.')[0]
+            tgt_name = tgt_image_path.split("/")[-1].split('.')[0]
+            ref_image_pil = Image.open(ref_image_path).convert("RGB")
+            tgt_image_pil = Image.open(tgt_image_path).convert("RGB")
+
+            
+            control_image = tgt_image_pil
+            
+            samples = pipeline(
+                ref_image_pil,
+                tgt_image_pil,
+                height=target_height,
+                width=target_width,
+                prompt='',
+                negative_prompt='',
+                num_images_per_prompt=1,
+                guidance_scale=6.0,
+                num_inference_steps=100,
+                image_meta_size=image_meta_size,
+                style=torch.as_tensor([0, 0], device=model.device),
+                return_dict=False,
+                generator=generator,
+                freqs_cis_img=freqs_cis_img,
+                use_fp16=True,
+                learn_sigma=True,
+            )[0]
+
+            res_image_pil = samples[0]
+
+            # Save ref_image, src_image and the generated_image
+            w, h = res_image_pil.size
+
+            ref_image_pil = ref_image_pil.resize((w, h))
+            control_image = control_image.resize((w, h))
+            canvas = Image.new("RGB", (w * 3, h), "white")
+
+            canvas.paste(ref_image_pil, (0, 0))
+            canvas.paste(control_image, (w, 0))
+            canvas.paste(res_image_pil, (w * 2, 0))
+
+            sample_name = f"{ref_name}_{tgt_name}"
+            out_file = Path(f"{val_save_dir}/{global_step:06d}-{sample_name}.png")
+            canvas.save(out_file)
+
+    vae = vae.to(dtype=torch.float16)
+    image_enc = image_enc.to(dtype=torch.float16)
+
+    del pipe
+    torch.cuda.empty_cache()
+
+    return pil_images
+
 def main(args):
     if args.training_parts == "lora":
         args.use_ema = False
@@ -337,7 +443,9 @@ def main(args):
                                     log_fn=logger.info,
                                     )
 
-    model_reference = HUNYUAN_DIT_MODELS[args.model](args,
+    # model_setting = 'DiT-g/2-ref10'
+    model_setting = args.model
+    model_reference = HUNYUAN_DIT_MODELS[model_setting](args,
                                         input_size=latent_size,
                                         log_fn=logger.info,
                                         )
@@ -442,8 +550,10 @@ def main(args):
 
     cfg = OmegaConf.load(args.data_config)
     dataset1 = HumanAnimationImageDataset(data_config=cfg.data, img_size=(cfg.data.train_width, cfg.data.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
-    dataset2 = HumanAnimationImageDataset(data_config=cfg.data2, img_size=(cfg.data2.train_width, cfg.data2.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
-    dataset_list = [dataset1, dataset2]
+    dataset_list = [dataset1]
+    if 'data2' in cfg.keys():
+        dataset2 = HumanAnimationImageDataset(data_config=cfg.data2, img_size=(cfg.data2.train_width, cfg.data2.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
+        dataset_list.append(dataset2)
     if 'data3' in cfg.keys():
         dataset3 = HumanAnimationImageDataset(data_config=cfg.data3, img_size=(cfg.data3.train_width, cfg.data3.train_height), control_type=cfg.control_type, use_depth_enhance=cfg.use_depth_enhance, use_ref_pose_guider=cfg.use_ref_pose_guider, use_hand_depth=cfg.use_hand_depth)
         dataset_list.append(dataset3)
@@ -470,7 +580,16 @@ def main(args):
     logger.info(" ****************************** Loading parameter ******************************")
     args.strict = False
     if args.resume is not None or len(args.resume) > 0:
-        model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
+        resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
+                                        map_location=lambda storage, loc: storage)
+        state_dict_to_load = {}
+        for key in resume_ckpt_module.keys():
+            if 'attn2.kv_proj.weight' in key:
+                pass
+            else:
+                state_dict_to_load[key] = resume_ckpt_module[key]
+        model.load_state_dict(state_dict_to_load, strict=args.strict)
+        # model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
 
     model, model_reference = model_copy_to_reference_net(model, model_reference)
 
@@ -482,12 +601,12 @@ def main(args):
     if args.use_fp16:
         net = Float16Module(net, args)
 
-    model_reference_block_end_ind = len(model_reference.blocks)
-    grad_no_need_layers = [f'blocks.{model_reference_block_end_ind}.attn2', 
-                           f'blocks.{model_reference_block_end_ind}.norm3',
-                           f'blocks.{model_reference_block_end_ind}.norm2',
-                           f'blocks.{model_reference_block_end_ind}.mlp']
-    # only ban final layer for easy
+    # model_reference_block_end_ind = len(model_reference.blocks)
+    # grad_no_need_layers = [f'blocks.{model_reference_block_end_ind}.attn2', 
+    #                        f'blocks.{model_reference_block_end_ind}.norm3',
+    #                        f'blocks.{model_reference_block_end_ind}.norm2',
+    #                        f'blocks.{model_reference_block_end_ind}.mlp']
+    # only ban final layer for simple code
     for name, param in model_reference.named_parameters():
         if 'final_layer' in name:
             param.requires_grad_(False)
@@ -639,6 +758,9 @@ def main(args):
                 running_loss = 0
                 log_steps = 0
                 start_time = time.time()
+            
+            # if train_steps % args.val_every == 0:
+            #     validation(model, ema, args, logger, device, epoch, train_steps, checkpoint_dir, freqs_cis_img, vae, loader, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5)
 
             # collect gc:
             if args.gc_interval > 0 and (step % args.gc_interval == 0):

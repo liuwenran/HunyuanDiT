@@ -90,8 +90,15 @@ def apply_rotary_emb(
         cos, sin = reshape_for_broadcast(freqs_cis, xq, head_first)    # [S, D]
         cos, sin = cos.to(xq.device), sin.to(xq.device)
         xq_out = (xq.float() * cos + rotate_half(xq.float()) * sin).type_as(xq)
+        seqlen_dim = 1 if not head_first else -2
         if xk is not None:
-            xk_out = (xk.float() * cos + rotate_half(xk.float()) * sin).type_as(xk)
+            if xk.shape[seqlen_dim] > cos.shape[seqlen_dim]:
+                xk_split_1, xk_split_2 = torch.split(xk, cos.shape[seqlen_dim], dim=seqlen_dim)
+                xk_1 = (xk_split_1.float() * cos + rotate_half(xk_split_1.float()) * sin).type_as(xk)
+                xk_2 = (xk_split_2.float() * cos + rotate_half(xk_split_2.float()) * sin).type_as(xk)
+                xk_out = torch.cat([xk_1, xk_2], dim=seqlen_dim)
+            else:
+                xk_out = (xk.float() * cos + rotate_half(xk.float()) * sin).type_as(xk)
     else:
         xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))  # [B, S, H, D//2]
         freqs_cis = reshape_for_broadcast(freqs_cis, xq_, head_first).to(xq.device)   # [S, D//2] --> [1, S, 1, D//2]
@@ -126,15 +133,21 @@ class FlashSelfMHAModified(nn.Module):
         self.head_dim = self.dim // num_heads
         assert self.head_dim % 8 == 0 and self.head_dim <= 128, "Only support head_dim <= 128 and divisible by 8"
 
-        self.Wqkv = nn.Linear(dim, 3 * dim, bias=qkv_bias, **factory_kwargs)
+        # self.Wqkv = nn.Linear(dim, 3 * dim, bias=qkv_bias, **factory_kwargs)
+
+        self.wq_proj = nn.Linear(dim, dim, bias=qkv_bias, **factory_kwargs)
+        self.wk_proj = nn.Linear(dim, dim, bias=qkv_bias, **factory_kwargs)
+        self.wv_proj = nn.Linear(dim, dim, bias=qkv_bias, **factory_kwargs)
+
         # TODO: eps should be 1 / 65530 if using fp16
         self.q_norm = norm_layer(self.head_dim, elementwise_affine=True, eps=1e-6) if qk_norm else nn.Identity()
         self.k_norm = norm_layer(self.head_dim, elementwise_affine=True, eps=1e-6) if qk_norm else nn.Identity()
-        self.inner_attn = FlashSelfAttention(attention_dropout=attn_drop)
+        # self.inner_attn = FlashSelfAttention(attention_dropout=attn_drop)
+        self.inner_attn = FlashCrossAttention(attention_dropout=attn_drop)
         self.out_proj = nn.Linear(dim, dim, bias=qkv_bias, **factory_kwargs)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x, freqs_cis_img=None):
+    def forward(self, x, freqs_cis_img=None, encoder_hidden_states=None):
         """
         Parameters
         ----------
@@ -145,10 +158,21 @@ class FlashSelfMHAModified(nn.Module):
         """
         b, s, d = x.shape
 
-        qkv = self.Wqkv(x)
-        qkv = qkv.view(b, s, 3, self.num_heads, self.head_dim)  # [b, s, 3, h, d]
-        q, k, v = qkv.unbind(dim=2) # [b, s, h, d]
-        q = self.q_norm(q).half()   # [b, s, h, d]
+        # import ipdb;ipdb.set_trace();
+
+        # qkv = self.Wqkv(x)
+        # qkv = qkv.view(b, s, 3, self.num_heads, self.head_dim)  # [b, s, 3, h, d]
+        # q, k, v = qkv.unbind(dim=2) # [b, s, h, d]
+
+        q = self.wq_proj(x).reshape(b, s, self.num_heads, self.head_dim)          # [b, s, h, d]
+        if encoder_hidden_states is not None:
+            k = self.wk_proj(encoder_hidden_states).reshape(b, -1, self.num_heads, self.head_dim)          # [b, s, h, d]
+            v = self.wv_proj(encoder_hidden_states).reshape(b, -1, self.num_heads, self.head_dim)          # [b, s, h, d]
+        else:
+            k = self.wk_proj(x).reshape(b, s, self.num_heads, self.head_dim)         # [b, s, h, d]
+            v = self.wv_proj(x).reshape(b, s, self.num_heads, self.head_dim)         # [b, s, h, d]
+
+        q = self.q_norm(q).half()   # [b, h, s, d]
         k = self.k_norm(k).half()
 
         # Apply RoPE if needed
@@ -157,8 +181,10 @@ class FlashSelfMHAModified(nn.Module):
             assert qq.shape == q.shape and kk.shape == k.shape, f'qq: {qq.shape}, q: {q.shape}, kk: {kk.shape}, k: {k.shape}'
             q, k = qq, kk
 
-        qkv = torch.stack([q, k, v], dim=2)     # [b, s, 3, h, d]
-        context = self.inner_attn(qkv)
+        # qkv = torch.stack([q, k, v], dim=2)     # [b, s, 3, h, d]
+        kv = torch.stack([k, v], dim=2)         # [b, s1, 2, h, d]
+        context = self.inner_attn(q, kv)        # [b, s1, h, d]
+        # context = self.inner_attn(qkv)
         out = self.out_proj(context.view(b, s, d))
         out = self.proj_drop(out)
 
@@ -340,7 +366,12 @@ class Attention(nn.Module):
         self.scale = self.head_dim ** -0.5
 
         # qkv --> Wqkv
-        self.Wqkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        # self.Wqkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+
+        self.wq_proj = nn.Linear(dim, dim, bias=qkv_bias)
+        self.wk_proj = nn.Linear(dim, dim, bias=qkv_bias)
+        self.wv_proj = nn.Linear(dim, dim, bias=qkv_bias)
+
         # TODO: eps should be 1 / 65530 if using fp16
         self.q_norm = norm_layer(self.head_dim, elementwise_affine=True, eps=1e-6) if qk_norm else nn.Identity()
         self.k_norm = norm_layer(self.head_dim, elementwise_affine=True, eps=1e-6) if qk_norm else nn.Identity()
@@ -348,10 +379,19 @@ class Attention(nn.Module):
         self.out_proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x, freqs_cis_img=None):
+    def forward(self, x, freqs_cis_img=None, encoder_hidden_states=None):
         B, N, C = x.shape
-        qkv = self.Wqkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)   # [3, b, h, s, d]
-        q, k, v = qkv.unbind(0)     # [b, h, s, d]
+        # qkv = self.Wqkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)   # [3, b, h, s, d]
+        # q, k, v = qkv.unbind(0)     # [b, h, s, d]
+
+        q = self.wq_proj(x).reshape(B, N, self.num_heads, self.head_dim).permute(0, 2, 1, 3)          # [b, h, s, d]
+        if encoder_hidden_states is not None:
+            k = self.wk_proj(encoder_hidden_states).reshape(B, -1, self.num_heads, self.head_dim).permute(0, 2, 1, 3)          # [b, h, s, d]
+            v = self.wv_proj(encoder_hidden_states).reshape(B, -1, self.num_heads, self.head_dim).permute(0, 2, 1, 3)          # [b, h, s, d]
+        else:
+            k = self.wk_proj(x).reshape(B, N, self.num_heads, self.head_dim).permute(0, 2, 1, 3)          # [b, h, s, d]
+            v = self.wv_proj(x).reshape(B, N, self.num_heads, self.head_dim).permute(0, 2, 1, 3)          # [b, h, s, d]
+
         q = self.q_norm(q)          # [b, h, s, d]
         k = self.k_norm(k)          # [b, h, s, d]
 

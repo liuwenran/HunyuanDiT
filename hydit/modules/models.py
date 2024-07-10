@@ -245,6 +245,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
                             num_heads=num_heads,
                             mlp_ratio=mlp_ratio,
                             text_states_dim=self.text_states_dim,
+                            # text_states_dim=hidden_size,
                             use_flash_attn=use_flash_attn,
                             qk_norm=qk_norm,
                             norm_type=self.norm,
@@ -505,11 +506,14 @@ def DiT_g_2(args, **kwargs):
     return HunYuanDiT(args, depth=40, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
 def DiT_XL_2(args, **kwargs):
     return HunYuanDiT(args, depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs)
-def DiT_g_2_ref(args, **kwargs):
+def DiT_g_2_ref10(args, **kwargs):
     return HunYuanDiT(args, depth=10, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
+def DiT_g_2_ref6(args, **kwargs):
+    return HunYuanDiT(args, depth=6, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
 
 HUNYUAN_DIT_MODELS = {
     'DiT-g/2':  DiT_g_2,
     'DiT-XL/2': DiT_XL_2,
-    'DiT-g/2-ref': DiT_g_2_ref,
+    'DiT-g/2-ref10': DiT_g_2_ref10,
+    'DiT-g/2-ref6': DiT_g_2_ref6,
 }

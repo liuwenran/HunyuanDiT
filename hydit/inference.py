@@ -213,9 +213,25 @@ class End2End(object):
                                     log_fn=logger.info,
                                     ).half().to(self.device)    # Force to use fp16
             # Load model checkpoint
+            model_path = '/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth'
             logger.info(f"Loading torch model {model_path}...")
             state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
             self.model.load_state_dict(state_dict)
+
+            # dict_to_save = {}
+            # for name, param in state_dict.items():
+            #     if 'Wqkv.weight' in name:
+            #         dict_to_save[name.replace('Wqkv', 'wq_proj')] = param[:1408,:]
+            #         dict_to_save[name.replace('Wqkv', 'wk_proj')] = param[1408:1408*2,:]
+            #         dict_to_save[name.replace('Wqkv', 'wv_proj')] = param[1408*2:1408*3,:]
+            #     elif 'Wqkv.bias' in name:
+            #         dict_to_save[name.replace('Wqkv', 'wq_proj')] = param[:1408]
+            #         dict_to_save[name.replace('Wqkv', 'wk_proj')] = param[1408:1408*2]
+            #         dict_to_save[name.replace('Wqkv', 'wv_proj')] = param[1408*2:1408*3]
+            #     else:
+            #         dict_to_save[name] = param
+            # torch.save(dict_to_save, '/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth')
+            import ipdb;ipdb.set_trace();
 
             lora_ckpt = args.lora_ckpt
             if lora_ckpt is not None and lora_ckpt != "":
@@ -388,6 +404,7 @@ class End2End(object):
         if sampler is not None and sampler != self.sampler:
             self.pipeline, self.sampler = self.load_sampler(sampler)
 
+        import ipdb;ipdb.set_trace();
         samples = self.pipeline(
             height=target_height,
             width=target_width,

@@ -270,22 +270,33 @@ class ReferenceAttentionControl:
             attn_inputs = (
                 self.norm1(x) + shift_msa, freq_cis_img,
             )
-            x = x + self.attn1(*attn_inputs)[0]
+            # x = x + self.attn1(*attn_inputs)[0]
 
             if MODE == "write":
-                # self.bank.append(x.clone())
-                self.bank = x
                 # self.bank = self.bank_proj(x)
+                self.bank = attn_inputs[0]
+                attn1_output = self.attn1(*attn_inputs)[0]
 
             if MODE == "read":
-                # x = x + self.bank[0]
-                x = x + self.bank
+                # x = x + self.bank
                 # text_states = torch.cat([text_states] + self.bank, dim=1)
+                encoder_hidden_states = torch.cat(
+                    [attn_inputs[0]] + [self.bank], dim=1
+                )
+                attn1_output = self.attn1(
+                    attn_inputs[0], freq_cis_img, encoder_hidden_states=encoder_hidden_states
+                )[0]
+
+            x = x + attn1_output
 
             # Cross-Attention
             cross_inputs = (
                 self.norm3(x), text_states, freq_cis_img
             )
+            # x = self.norm3(x)
+            # cross_inputs = (
+            #     x, x, freq_cis_img
+            # )
             x = x + self.attn2(*cross_inputs)[0]
 
             # FFN Layer
@@ -317,8 +328,10 @@ class ReferenceAttentionControl:
                 # module.bank = []
                 module.register_buffer('bank', torch.zeros(batch_size, self.num_tokens, self.hidden_size))
                 module.bank = module.bank.to(dtype=dtype, device=device)
-                # if MODE == "write":
-                #     module.bank_proj = zero_module(nn.Linear(self.hidden_size, self.hidden_size))
+                if MODE == "write":
+                    if not hasattr(module, 'bank_proj'):
+                        module.bank_proj = zero_module(nn.Linear(self.hidden_size, self.hidden_size))
+                    module.bank_proj = module.bank_proj.to(dtype=dtype, device=device)
 
     def update(self, writer, dtype=torch.float16):
         if self.reference_attn:

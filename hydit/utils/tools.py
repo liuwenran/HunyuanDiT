@@ -137,7 +137,7 @@ def model_copy_to_reference_net(model, model_reference):
         bank_name = f'blocks.{bank_ind}.bank'
         bank_param = model.blocks[bank_ind + start_ind].bank
         param_dict[bank_name] = bank_param
-    model_reference.load_state_dict(param_dict)
+    model_reference.load_state_dict(param_dict, strict=False)
     return model, model_reference
 
 def model_resume(args, model, ema, logger, len_loader):
