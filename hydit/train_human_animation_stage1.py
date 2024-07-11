@@ -263,49 +263,17 @@ def prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden
     return latents, model_kwargs
 
 
-def validation(args, model, model_reference, pose_guider, vae, image_enc, target_width, target_height, image_meta_size, freqs_cis_img, val_save_dir, global_step, sampler=None):
-    from .constants import SAMPLER_FACTORY, NEGATIVE_PROMPT, TRT_MAX_WIDTH, TRT_MAX_HEIGHT, TRT_MAX_BATCH_SIZE
-    from diffusers import schedulers
+def validation(args, model, model_reference, pose_guider, vae, target_width, target_height, freqs_cis_img, val_save_dir, global_step):
+    from hydit.inference_human_animation import get_pipeline
+    pipeline, sampler = get_pipeline(args, vae, None, None, model, model_reference, pose_guider, model.device, 0, None, 'torch')
 
-    generator = torch.Generator(device=model.device).manual_seed(42)
-    # cast unet dtype
-    vae = vae.to(dtype=torch.float32)
-    image_enc = image_enc.to(dtype=torch.float32)
+    generator = set_seeds(2024, device=model.device)
 
-    sampler = sampler or args.sampler
+    size_cond = [target_width, target_height, target_width, target_height, 0, 0]
+    image_meta_size = torch.as_tensor([size_cond] * 2 , device=model.device)
 
-    # Load sampler from factory
-    kwargs = SAMPLER_FACTORY[sampler]['kwargs']
-    scheduler = SAMPLER_FACTORY[sampler]['scheduler']
-
-    # Update sampler according to the arguments
-    kwargs['beta_schedule'] = args.noise_schedule
-    kwargs['beta_start'] = args.beta_start
-    kwargs['beta_end'] = args.beta_end
-    kwargs['prediction_type'] = args.predict_type
-
-    # Build scheduler according to the sampler.
-    scheduler_class = getattr(schedulers, scheduler)
-    scheduler = scheduler_class(**kwargs)
-
-    # Set timesteps for inference steps.
-    scheduler.set_timesteps(args.infer_steps, model.device)
-
-    pipeline = StableDiffusionPipeline(vae=vae,
-                                       text_encoder=None,
-                                       tokenizer=None,
-                                       unet=model,
-                                       reference_unet=model_reference,
-                                       pose_guider=pose_guider,
-                                       scheduler=scheduler,
-                                       feature_extractor=None,
-                                       safety_checker=None,
-                                       requires_safety_checker=False,
-                                       progress_bar_config={},
-                                       embedder_t5={},
-                                       infer_mode='torch',
-                                       )
-    
+    reso = f"{target_height}x{target_width}"
+    freqs_cis_img = freqs_cis_img[reso]
 
     ref_image_paths = open(args.validation_ref_images, 'r').readlines()
     tgt_image_paths = open(args.validation_tgt_images, 'r').readlines()
@@ -322,7 +290,6 @@ def validation(args, model, model_reference, pose_guider, vae, image_enc, target
             ref_image_pil = Image.open(ref_image_path).convert("RGB")
             tgt_image_pil = Image.open(tgt_image_path).convert("RGB")
 
-            
             control_image = tgt_image_pil
             
             samples = pipeline(
@@ -361,10 +328,7 @@ def validation(args, model, model_reference, pose_guider, vae, image_enc, target
             out_file = Path(f"{val_save_dir}/{global_step:06d}-{sample_name}.png")
             canvas.save(out_file)
 
-    vae = vae.to(dtype=torch.float16)
-    image_enc = image_enc.to(dtype=torch.float16)
-
-    del pipe
+    del pipeline
     torch.cuda.empty_cache()
 
     return pil_images
@@ -584,11 +548,12 @@ def main(args):
                                         map_location=lambda storage, loc: storage)
         state_dict_to_load = {}
         for key in resume_ckpt_module.keys():
-            if 'attn2.kv_proj.weight' in key:
+            # if 'attn2.kv_proj.weight' in key:
+            if 'bank' in key:
                 pass
             else:
                 state_dict_to_load[key] = resume_ckpt_module[key]
-        model.load_state_dict(state_dict_to_load, strict=args.strict)
+        # model.load_state_dict(state_dict_to_load, strict=args.strict)
         # model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
 
     model, model_reference = model_copy_to_reference_net(model, model_reference)
@@ -759,8 +724,13 @@ def main(args):
                 log_steps = 0
                 start_time = time.time()
             
-            # if train_steps % args.val_every == 0:
-            #     validation(model, ema, args, logger, device, epoch, train_steps, checkpoint_dir, freqs_cis_img, vae, loader, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5)
+            if train_steps % args.val_every == 0:
+                dist.barrier()
+                if rank == 0:
+                    target_width, target_height = cfg.data.train_width, cfg.data.train_height
+                    val_save_dir = f'{experiment_dir}/val'
+                    os.makedirs(val_save_dir, exist_ok=True)
+                    validation(args, model, model_reference, pose_guider, vae, target_width, target_height, freqs_cis_img, val_save_dir, train_steps)
 
             # collect gc:
             if args.gc_interval > 0 and (step % args.gc_interval == 0):

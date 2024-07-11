@@ -116,6 +116,9 @@ def get_args(default_args=None):
                         help='To address the memory bottleneck encountered during the preprocessing of the dataset,'
                              ' memory fragments are reclaimed here by invoking the gc.collect() function.')
     parser.add_argument("--log-every", type=int, default=100)
+    parser.add_argument("--val-every", type=int, default=500)
+    parser.add_argument("--validation-ref-images", type=str, default='/mnt/petrelfs/liuwenran/repos/HumanAnimation/data/stage1_validation/val_image.txt')
+    parser.add_argument("--validation-tgt-images", type=str, default='/mnt/petrelfs/liuwenran/repos/HumanAnimation/data/stage1_validation/vroid_dance_pose_1024_two.txt')
     parser.add_argument("--ckpt-every", type=int, default=100_000, help="Create a ckpt every a few steps.")
     parser.add_argument("--ckpt-latest-every", type=int, default=10_000, help="Create a ckpt named `latest.pt` every a few steps.")
     parser.add_argument("--num-workers", type=int, default=4)
