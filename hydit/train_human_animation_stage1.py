@@ -553,7 +553,7 @@ def main(args):
                 pass
             else:
                 state_dict_to_load[key] = resume_ckpt_module[key]
-        # model.load_state_dict(state_dict_to_load, strict=args.strict)
+        model.load_state_dict(state_dict_to_load, strict=args.strict)
         # model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
 
     model, model_reference = model_copy_to_reference_net(model, model_reference)
@@ -641,13 +641,13 @@ def main(args):
 
     # encoder_hidden_states.shape torch.Size([1, 77, 1024])
     # encoder_hidden_states_t5.shape  torch.Size([1, 256, 2048])
-    encoder_hidden_states = torch.load('empty_prompt_resources/encoder_hidden_states.pt', map_location="cpu").to(device)
+    encoder_hidden_states = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states.pt', map_location="cpu").to(device)
     encoder_hidden_states = encoder_hidden_states.repeat(batch_size, 1, 1)
-    encoder_hidden_states_t5 = torch.load('empty_prompt_resources/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
+    encoder_hidden_states_t5 = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
     encoder_hidden_states_t5 = encoder_hidden_states_t5.repeat(batch_size, 1, 1)
-    text_embedding_mask = torch.load('empty_prompt_resources/text_embedding_mask.pt', map_location="cpu").to(device)
+    text_embedding_mask = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask.pt', map_location="cpu").to(device)
     text_embedding_mask = text_embedding_mask.repeat(batch_size, 1)
-    text_embedding_mask_t5 = torch.load('empty_prompt_resources/text_embedding_mask_t5.pt', map_location="cpu").to(device)
+    text_embedding_mask_t5 = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask_t5.pt', map_location="cpu").to(device)
     text_embedding_mask_t5 = text_embedding_mask_t5.repeat(batch_size, 1)
 
     # Training loop

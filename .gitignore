@@ -139,5 +139,7 @@ trt/deactivate.sh
 ckpts/
 dataset/jade/
 dataset/porcelain/
-empty_prompt_resources/
+prompt_embeddings/
+weights/
+data/
 log_EXP/

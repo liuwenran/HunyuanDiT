@@ -707,10 +707,12 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
                                lora_scale=text_encoder_lora_scale,
                                embedder=self.embedder_t5,
                                )
-        # encoder_hidden_states = torch.load('empty_prompt_resources/encoder_hidden_states.pt', map_location="cpu").to(device)
-        # encoder_hidden_states_t5 = torch.load('empty_prompt_resources/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
-        # text_embedding_mask = torch.load('empty_prompt_resources/text_embedding_mask.pt', map_location="cpu").to(device)
-        # text_embedding_mask_t5 = torch.load('empty_prompt_resources/text_embedding_mask_t5.pt', map_location="cpu").to(device)
+        
+        import ipdb;ipdb.set_trace();
+        # encoder_hidden_states = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states.pt', map_location="cpu").to(device)
+        # encoder_hidden_states_t5 = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
+        # text_embedding_mask = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask.pt', map_location="cpu").to(device)
+        # text_embedding_mask_t5 = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask_t5.pt', map_location="cpu").to(device)
         # prompt_embeds, negative_prompt_embeds, attention_mask, uncond_attention_mask = \
         #     self.encode_prompt_from_disk(
         #         encoder_hidden_states,
