@@ -184,6 +184,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
             num_heads=16,
             mlp_ratio=4.0,
             log_fn=print,
+            # clip_img_embed_dim=1024,
     ):
         super().__init__()
         self.args = args
@@ -211,6 +212,13 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
             FP32_SiLU(),
             nn.Linear(self.text_states_dim_t5 * 4, self.text_states_dim, bias=True),
         )
+
+        # self.mlp_clip_img_embed = nn.Sequential(
+        #     nn.Linear(clip_img_embed_dim, clip_img_embed_dim * 4, bias=True),
+        #     FP32_SiLU(),
+        #     nn.Linear(clip_img_embed_dim * 4, self.text_states_dim, bias=True),
+        # )
+
         # learnable replace
         self.text_embedding_padding = nn.Parameter(
             torch.randn(self.text_len + self.text_len_t5, self.text_states_dim, dtype=torch.float32))
@@ -273,6 +281,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
                 return_dict=True,
                 controls=None,
                 pose_embedding=None,
+                # clip_img_embedding=None,
                 ):
         """
         Forward pass of the encoder.
@@ -339,6 +348,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
 
         # Concatenate all extra vectors
         c = t + self.extra_embedder(extra_vec)  # [B, D]
+        # c = t
 
         # add condition
         if pose_embedding is not None:

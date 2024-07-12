@@ -641,14 +641,23 @@ def main(args):
 
     # encoder_hidden_states.shape torch.Size([1, 77, 1024])
     # encoder_hidden_states_t5.shape  torch.Size([1, 256, 2048])
-    encoder_hidden_states = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states.pt', map_location="cpu").to(device)
-    encoder_hidden_states = encoder_hidden_states.repeat(batch_size, 1, 1)
-    encoder_hidden_states_t5 = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
-    encoder_hidden_states_t5 = encoder_hidden_states_t5.repeat(batch_size, 1, 1)
-    text_embedding_mask = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask.pt', map_location="cpu").to(device)
-    text_embedding_mask = text_embedding_mask.repeat(batch_size, 1)
-    text_embedding_mask_t5 = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask_t5.pt', map_location="cpu").to(device)
-    text_embedding_mask_t5 = text_embedding_mask_t5.repeat(batch_size, 1)
+    encoder_hidden_states_empty = torch.load('prompt_embeddings/empty_prompt_train/encoder_hidden_states.pt', map_location="cpu").to(device)
+    encoder_hidden_states_empty = encoder_hidden_states_empty.repeat(batch_size, 1, 1)
+    encoder_hidden_states_t5_empty = torch.load('prompt_embeddings/empty_prompt_train/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
+    encoder_hidden_states_t5_empty = encoder_hidden_states_t5_empty.repeat(batch_size, 1, 1)
+    text_embedding_mask_empty = torch.load('prompt_embeddings/empty_prompt_train/text_embedding_mask.pt', map_location="cpu").to(device)
+    text_embedding_mask_empty = text_embedding_mask_empty.repeat(batch_size, 1)
+    text_embedding_mask_t5_empty = torch.load('prompt_embeddings/empty_prompt_train/text_embedding_mask_t5.pt', map_location="cpu").to(device)
+    text_embedding_mask_t5_empty = text_embedding_mask_t5_empty.repeat(batch_size, 1)
+
+    encoder_hidden_states_human = torch.load('prompt_embeddings/human_prompt_train/encoder_hidden_states.pt', map_location="cpu").to(device)
+    encoder_hidden_states_human = encoder_hidden_states_human.repeat(batch_size, 1, 1)
+    encoder_hidden_states_t5_human = torch.load('prompt_embeddings/human_prompt_train/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
+    encoder_hidden_states_t5_human = encoder_hidden_states_t5_human.repeat(batch_size, 1, 1)
+    text_embedding_mask_human = torch.load('prompt_embeddings/human_prompt_train/text_embedding_mask.pt', map_location="cpu").to(device)
+    text_embedding_mask_human = text_embedding_mask_human.repeat(batch_size, 1)
+    text_embedding_mask_t5_human = torch.load('prompt_embeddings/human_prompt_train/text_embedding_mask_t5.pt', map_location="cpu").to(device)
+    text_embedding_mask_t5_human = text_embedding_mask_t5_human.repeat(batch_size, 1)
 
     # Training loop
     for epoch in range(start_epoch, args.epochs):
@@ -660,6 +669,17 @@ def main(args):
         step = 0
         for batch in loader:
             step += 1
+
+            if random.random() < args.uncond_p:
+                encoder_hidden_states = encoder_hidden_states_empty
+                encoder_hidden_states_t5 = encoder_hidden_states_t5_empty
+                text_embedding_mask = text_embedding_mask_empty
+                text_embedding_mask_t5 = text_embedding_mask_t5_empty
+            else:
+                encoder_hidden_states = encoder_hidden_states_human
+                encoder_hidden_states_t5 = encoder_hidden_states_t5_human
+                text_embedding_mask = text_embedding_mask_human
+                text_embedding_mask_t5 = text_embedding_mask_t5_human
 
             latents, model_kwargs = prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5)
 

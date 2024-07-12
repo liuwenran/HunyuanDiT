@@ -686,6 +686,7 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
             cross_attention_kwargs.get("scale", None) if cross_attention_kwargs is not None else None
         )
 
+        import ipdb;ipdb.set_trace();
         prompt_embeds, negative_prompt_embeds, attention_mask, uncond_attention_mask = \
             self.encode_prompt(prompt,
                                device,
@@ -708,7 +709,15 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
                                embedder=self.embedder_t5,
                                )
         
-        import ipdb;ipdb.set_trace();
+        # torch.save(prompt_embeds, 'prompt_embeddings/human_prompt_inference/prompt_embeds.pt')
+        # torch.save(negative_prompt_embeds, 'prompt_embeddings/human_prompt_inference/negative_prompt_embeds.pt')
+        # torch.save(attention_mask, 'prompt_embeddings/human_prompt_inference/attention_mask.pt')
+        # torch.save(uncond_attention_mask, 'prompt_embeddings/human_prompt_inference/uncond_attention_mask.pt')
+        # torch.save(prompt_embeds_t5, 'prompt_embeddings/human_prompt_inference/prompt_embeds_t5.pt')
+        # torch.save(negative_prompt_embeds_t5, 'prompt_embeddings/human_prompt_inference/negative_prompt_embeds_t5.pt')
+        # torch.save(attention_mask_t5, 'prompt_embeddings/human_prompt_inference/attention_mask_t5.pt')
+        # torch.save(uncond_attention_mask_t5, 'prompt_embeddings/human_prompt_inference/uncond_attention_mask_t5.pt')
+
         # encoder_hidden_states = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states.pt', map_location="cpu").to(device)
         # encoder_hidden_states_t5 = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
         # text_embedding_mask = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask.pt', map_location="cpu").to(device)

@@ -252,6 +252,9 @@ class TextImageArrowStream(Dataset):
         #     text_embedding_mask_t5 = torch.load('empty_prompt_resources/text_embedding_mask_t5.pt', map_location='cpu')
         # else:
         #     text_t5, text_embedding_t5, text_embedding_mask_t5 = self.get_text_info_with_encoder_t5(description_t5)
+        
+        # import ipdb; ipdb.set_trace();
+        # description = '一张包含人物的图片'
         text, text_embedding, text_embedding_mask = self.get_text_info_with_encoder(description)
 
         text_t5, text_embedding_t5, text_embedding_mask_t5 = self.get_text_info_with_encoder_t5(description_t5)
@@ -261,6 +264,7 @@ class TextImageArrowStream(Dataset):
             text_embedding_mask.clone().detach(),
             text_embedding_t5.clone().detach(),
             text_embedding_mask_t5.clone().detach(),
+            description,
             {k: torch.tensor(np.array(v)).clone().detach() for k, v in kwargs.items()},
         )
 

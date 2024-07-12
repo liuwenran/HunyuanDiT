@@ -1,4 +1,4 @@
-task_flag="ref_net_attn_inject_wocrossattn_val_5k"                                # the task flag is used to identify folders.
+task_flag="ref_net_attn_inject_val_5k_uncond_woextra-embed"                                # the task flag is used to identify folders.
 resume=./ckpts/t2i/model/                                    # checkpoint root for resume
 index_file=dataset/porcelain/jsons/porcelain.json            # index file for dataloader
 results_dir=./log_EXP                                        # save root for results

@@ -693,28 +693,37 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
             cross_attention_kwargs.get("scale", None) if cross_attention_kwargs is not None else None
         )
 
-        encoder_hidden_states = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states.pt', map_location="cpu").to(device)
-        encoder_hidden_states_t5 = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
-        text_embedding_mask = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask.pt', map_location="cpu").to(device)
-        text_embedding_mask_t5 = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask_t5.pt', map_location="cpu").to(device)
-        prompt_embeds, negative_prompt_embeds, attention_mask, uncond_attention_mask = \
-            self.encode_prompt_from_disk(
-                encoder_hidden_states,
-                text_embedding_mask,
-                device,
-                num_images_per_prompt,
-                do_classifier_free_guidance,
-                batch_size=batch_size,
-            )
-        prompt_embeds_t5, negative_prompt_embeds_t5, attention_mask_t5, uncond_attention_mask_t5 = \
-            self.encode_prompt_from_disk(
-                encoder_hidden_states_t5,
-                text_embedding_mask_t5,
-                device,
-                num_images_per_prompt,
-                do_classifier_free_guidance,
-                batch_size=batch_size,
-            )
+        # encoder_hidden_states = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states.pt', map_location="cpu").to(device)
+        # encoder_hidden_states_t5 = torch.load('prompt_embeddings/empty_prompt/encoder_hidden_states_t5.pt', map_location="cpu").to(device)
+        # text_embedding_mask = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask.pt', map_location="cpu").to(device)
+        # text_embedding_mask_t5 = torch.load('prompt_embeddings/empty_prompt/text_embedding_mask_t5.pt', map_location="cpu").to(device)
+
+        prompt_embeds = torch.load('prompt_embeddings/human_prompt_inference/prompt_embeds.pt', map_location="cpu").to(device)
+        negative_prompt_embeds = torch.load('prompt_embeddings/human_prompt_inference/negative_prompt_embeds.pt', map_location="cpu").to(device)
+        attention_mask = torch.load('prompt_embeddings/human_prompt_inference/attention_mask.pt', map_location="cpu").to(device)
+        uncond_attention_mask = torch.load('prompt_embeddings/human_prompt_inference/uncond_attention_mask.pt', map_location="cpu").to(device)
+        prompt_embeds_t5 = torch.load('prompt_embeddings/human_prompt_inference/prompt_embeds_t5.pt', map_location="cpu").to(device)
+        negative_prompt_embeds_t5 = torch.load('prompt_embeddings/human_prompt_inference/negative_prompt_embeds_t5.pt', map_location="cpu").to(device)
+        attention_mask_t5 = torch.load('prompt_embeddings/human_prompt_inference/attention_mask_t5.pt', map_location="cpu").to(device)
+        uncond_attention_mask_t5 = torch.load('prompt_embeddings/human_prompt_inference/uncond_attention_mask_t5.pt', map_location="cpu").to(device)
+        # prompt_embeds, negative_prompt_embeds, attention_mask, uncond_attention_mask = \
+        #     self.encode_prompt_from_disk(
+        #         encoder_hidden_states,
+        #         text_embedding_mask,
+        #         device,
+        #         num_images_per_prompt,
+        #         do_classifier_free_guidance,
+        #         batch_size=batch_size,
+        #     )
+        # prompt_embeds_t5, negative_prompt_embeds_t5, attention_mask_t5, uncond_attention_mask_t5 = \
+        #     self.encode_prompt_from_disk(
+        #         encoder_hidden_states_t5,
+        #         text_embedding_mask_t5,
+        #         device,
+        #         num_images_per_prompt,
+        #         do_classifier_free_guidance,
+        #         batch_size=batch_size,
+        #     )
 
         # For classifier free guidance, we need to do two forward passes.
         # Here we concatenate the unconditional and text embeddings into a single batch

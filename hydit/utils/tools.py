@@ -190,8 +190,10 @@ def model_resume(args, model, ema, logger, len_loader):
             assert 'pytorch_model_module.pt' in os.listdir(
                 resume_path), f'    Cannot find pytorch_model_module.pt from {resume_path}'
             logger.info(f"    Resume main model from main states.")
-            resume_ckpt_module = torch.load(os.path.join(resume_path, 'pytorch_model_module.pt'),
-                                            map_location=lambda storage, loc: storage)
+            # resume_ckpt_module = torch.load(os.path.join(resume_path, 'pytorch_model_module.pt'),
+            #                                 map_location=lambda storage, loc: storage)
+            resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
+                                        map_location=lambda storage, loc: storage)
             model.load_state_dict(resume_ckpt_module, strict=args.strict)
         # Resume ema model
         if args.use_ema:

@@ -231,7 +231,6 @@ class End2End(object):
             #     else:
             #         dict_to_save[name] = param
             # torch.save(dict_to_save, '/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth')
-            import ipdb;ipdb.set_trace();
 
             lora_ckpt = args.lora_ckpt
             if lora_ckpt is not None and lora_ckpt != "":
@@ -404,7 +403,6 @@ class End2End(object):
         if sampler is not None and sampler != self.sampler:
             self.pipeline, self.sampler = self.load_sampler(sampler)
 
-        import ipdb;ipdb.set_trace();
         samples = self.pipeline(
             height=target_height,
             width=target_width,

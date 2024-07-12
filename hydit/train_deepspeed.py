@@ -109,7 +109,7 @@ def save_checkpoint(args, rank, logger, model, ema, epoch, train_steps, checkpoi
 
 @torch.no_grad()
 def prepare_model_inputs(args, batch, device, vae, text_encoder, text_encoder_t5, freqs_cis_img):
-    image, text_embedding, text_embedding_mask, text_embedding_t5, text_embedding_mask_t5, kwargs = batch
+    image, text_embedding, text_embedding_mask, text_embedding_t5, text_embedding_mask_t5, description, kwargs = batch
 
     # clip & mT5 text embedding
     text_embedding = text_embedding.to(device)
@@ -128,6 +128,16 @@ def prepare_model_inputs(args, batch, device, vae, text_encoder, text_encoder_t5
         )
         encoder_hidden_states_t5 = output_t5['hidden_states'][T5_ENCODER['layer_index']].detach()
 
+    # import ipdb;ipdb.set_trace();
+    # print(f'description:{description}')
+    # torch.save(text_embedding, 'prompt_embeddings/empty_prompt_train/text_embedding.pt')
+    # torch.save(text_embedding_mask, 'prompt_embeddings/empty_prompt_train/text_embedding_mask.pt')
+    # torch.save(text_embedding_t5, 'prompt_embeddings/empty_prompt_train/text_embedding_t5.pt')
+    # torch.save(text_embedding_mask_t5, 'prompt_embeddings/empty_prompt_train/text_embedding_mask_t5.pt')
+    # torch.save(encoder_hidden_states, 'prompt_embeddings/empty_prompt_train/encoder_hidden_states.pt')
+    # torch.save(encoder_hidden_states_t5, 'prompt_embeddings/empty_prompt_train/encoder_hidden_states_t5.pt')
+
+    # import ipdb;ipdb.set_trace();
     # additional condition
     image_meta_size = kwargs['image_meta_size'].to(device)
     style = kwargs['style'].to(device)

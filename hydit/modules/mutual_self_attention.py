@@ -290,15 +290,15 @@ class ReferenceAttentionControl:
             x = x + attn1_output
 
             # Cross-Attention
-            # cross_inputs = (
-            #     self.norm3(x), text_states, freq_cis_img
-            # )
+            cross_inputs = (
+                self.norm3(x), text_states, freq_cis_img
+            )
 
             # x = self.norm3(x)
             # cross_inputs = (
             #     x, x, freq_cis_img
             # )
-            # x = x + self.attn2(*cross_inputs)[0]
+            x = x + self.attn2(*cross_inputs)[0]
 
             # FFN Layer
             mlp_inputs = self.norm2(x)
