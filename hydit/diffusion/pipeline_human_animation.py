@@ -114,6 +114,7 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
             scheduler: KarrasDiffusionSchedulers,
             safety_checker: StableDiffusionSafetyChecker,
             feature_extractor: CLIPImageProcessor,
+            image_encoder: ReferenceAttentionControl = None,
             requires_safety_checker: bool = True,
             progress_bar_config: Dict[str, Any] = None,
             embedder_t5=None,
@@ -186,9 +187,11 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
             scheduler=scheduler,
             safety_checker=safety_checker,
             feature_extractor=feature_extractor,
+            image_encoder=image_encoder,
         )
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
         self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae_scale_factor)
+        self.clip_image_processor = CLIPImageProcessor()
         self.register_to_config(requires_safety_checker=requires_safety_checker)
 
     def enable_vae_slicing(self):
@@ -734,6 +737,23 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
             prompt_embeds_t5 = torch.cat([negative_prompt_embeds_t5, prompt_embeds_t5])
             attention_mask_t5 = torch.cat([uncond_attention_mask_t5, attention_mask_t5])
 
+        clip_image = self.clip_image_processor.preprocess(
+            ref_image.resize((224, 224)), return_tensors="pt"
+        ).pixel_values
+        clip_image_embeds = self.image_encoder(
+            clip_image.to(device, dtype=self.image_encoder.dtype)
+        ).image_embeds
+        image_prompt_embeds = clip_image_embeds
+        uncond_image_prompt_embeds = torch.zeros_like(image_prompt_embeds)
+        if use_fp16:
+            image_prompt_embeds = image_prompt_embeds.half()
+            uncond_image_prompt_embeds = uncond_image_prompt_embeds.half()
+
+        if do_classifier_free_guidance:
+            image_prompt_embeds = torch.cat(
+                [uncond_image_prompt_embeds, image_prompt_embeds], dim=0
+            )
+
         hidden_size = self.unet.hidden_size
         num_tokens = self.unet.x_embedder.num_patches
         reference_control_writer = ReferenceAttentionControl(
@@ -832,6 +852,7 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
                         cos_cis_img=freqs_cis_img[0],
                         sin_cis_img=freqs_cis_img[1],
                         return_dict=False,
+                        clip_img_embedding=image_prompt_embeds,
                     )
 
                     # 2. Update reference unet feature into denosing net
@@ -866,6 +887,7 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
                         sin_cis_img=freqs_cis_img[1],
                         return_dict=False,
                         pose_embedding=pose_embedding,
+                        clip_img_embedding=image_prompt_embeds,
                     )
                 elif self.infer_mode == "trt":
                     noise_pred = self.unet(

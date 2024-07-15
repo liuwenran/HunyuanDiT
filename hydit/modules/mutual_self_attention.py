@@ -329,10 +329,10 @@ class ReferenceAttentionControl:
                 # module.bank = []
                 module.register_buffer('bank', torch.zeros(batch_size, self.num_tokens, self.hidden_size))
                 module.bank = module.bank.to(dtype=dtype, device=device)
-                if MODE == "write":
-                    if not hasattr(module, 'bank_proj'):
-                        module.bank_proj = zero_module(nn.Linear(self.hidden_size, self.hidden_size))
-                    module.bank_proj = module.bank_proj.to(dtype=dtype, device=device)
+                # if MODE == "write":
+                #     if not hasattr(module, 'bank_proj'):
+                #         module.bank_proj = zero_module(nn.Linear(self.hidden_size, self.hidden_size))
+                #     module.bank_proj = module.bank_proj.to(dtype=dtype, device=device)
 
     def update(self, writer, dtype=torch.float16):
         if self.reference_attn:

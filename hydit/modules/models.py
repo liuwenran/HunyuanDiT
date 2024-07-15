@@ -184,7 +184,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
             num_heads=16,
             mlp_ratio=4.0,
             log_fn=print,
-            clip_img_embed_dim=1024,
+            clip_img_embed_dim=768,
     ):
         super().__init__()
         self.args = args
@@ -351,6 +351,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
         # c = t
 
         image_states = self.mlp_clip_img_embed(clip_img_embedding)
+        image_states = image_states.unsqueeze(1)
 
         # add condition
         if pose_embedding is not None:

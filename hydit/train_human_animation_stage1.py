@@ -221,13 +221,16 @@ def save_checkpoint(args, rank, logger, model, ema, epoch, train_steps, checkpoi
     return checkpoint_path
 
 @torch.no_grad()
-def prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5):
+def prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5, image_enc):
     image = batch['img']
     tgt_pose = batch['tgt_pose']
     ref_image = batch['ref_img']
     # additional condition
     image_meta_size = batch['image_meta_size'].to(device)
     style = batch['style'].to(device)
+    clip_img = batch['clip_images']
+    if random.random() < args.uncond_p:
+        clip_img = torch.zeros_like(clip_img)
 
     batch_size = image.shape[0]
 
@@ -243,6 +246,9 @@ def prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden
     ref_latents = vae.encode(ref_image).latent_dist.sample().mul_(vae_scaling_factor)
     tgt_pose = tgt_pose.to(device)
     tgt_pose_latents = vae.encode(tgt_pose).latent_dist.sample().mul_(vae_scaling_factor)
+
+    clip_img = clip_img.to(dtype=image_enc.dtype, device=image_enc.device)
+    clip_img_embedding = image_enc(clip_img).image_embeds
 
     # positional embedding
     _, _, height, width = image.shape
@@ -261,14 +267,15 @@ def prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden
         sin_cis_img=sin_cis_img,
         ref_latents=ref_latents,
         tgt_pose_latents=tgt_pose_latents,
+        clip_img_embedding=clip_img_embedding,
     )
 
     return latents, model_kwargs
 
 
-def validation(args, model, model_reference, pose_guider, vae, target_width, target_height, freqs_cis_img, val_save_dir, global_step):
+def validation(args, model, model_reference, pose_guider, vae, image_encoder, target_width, target_height, freqs_cis_img, val_save_dir, global_step):
     from hydit.inference_human_animation import get_pipeline
-    pipeline, sampler = get_pipeline(args, vae, None, None, model, model_reference, pose_guider, model.device, 0, None, 'torch')
+    pipeline, sampler = get_pipeline(args, vae, None, None, model, model_reference, pose_guider, image_encoder, model.device, 0, None, 'torch')
 
     generator = set_seeds(2024, device=model.device)
 
@@ -441,10 +448,8 @@ def main(args):
         num_tokens=num_tokens,
     )
 
-    image_enc = CLIPVisionModelWithProjection.from_pretrained(
-        args.clip_base_model_path,
-        subfolder="image_encoder",
-    ).to(device=device)
+    image_encoder = CLIPVisionModelWithProjection.from_pretrained(args.clip_image_encoder_path).to(device=device)
+    image_encoder.requires_grad_(False)
 
     assert args.deepspeed, f"Must enable deepspeed in this script: train_deepspeed.py"
     with deepspeed.zero.Init(data_parallel_group=torch.distributed.group.WORLD,
@@ -689,7 +694,7 @@ def main(args):
                 text_embedding_mask = text_embedding_mask_human
                 text_embedding_mask_t5 = text_embedding_mask_t5_human
 
-            latents, model_kwargs = prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5)
+            latents, model_kwargs = prepare_model_inputs(args, batch, device, vae, freqs_cis_img, encoder_hidden_states, encoder_hidden_states_t5, text_embedding_mask, text_embedding_mask_t5, image_encoder)
 
             # training model by deepspeed while use fp16
             if args.use_fp16:
@@ -758,7 +763,7 @@ def main(args):
                     target_width, target_height = cfg.data.train_width, cfg.data.train_height
                     val_save_dir = f'{experiment_dir}/val'
                     os.makedirs(val_save_dir, exist_ok=True)
-                    validation(args, model, model_reference, pose_guider, vae, target_width, target_height, freqs_cis_img, val_save_dir, train_steps)
+                    validation(args, model, model_reference, pose_guider, vae, image_encoder, target_width, target_height, freqs_cis_img, val_save_dir, train_steps)
 
             # collect gc:
             if args.gc_interval > 0 and (step % args.gc_interval == 0):

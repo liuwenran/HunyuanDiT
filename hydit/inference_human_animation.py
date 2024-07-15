@@ -103,7 +103,7 @@ def _to_tuple(val):
     return val
 
 
-def get_pipeline(args, vae, text_encoder, tokenizer, model, model_reference, pose_guider, device, rank,
+def get_pipeline(args, vae, text_encoder, tokenizer, model, model_reference, pose_guider, image_encoder, device, rank,
                  embedder_t5, infer_mode, sampler=None):
     """
     Get scheduler and pipeline for sampling. The sampler and pipeline are both
@@ -149,6 +149,7 @@ def get_pipeline(args, vae, text_encoder, tokenizer, model, model_reference, pos
                                        progress_bar_config=progress_bar_config,
                                        embedder_t5=embedder_t5,
                                        infer_mode=infer_mode,
+                                       image_encoder=image_encoder,
                                        )
 
     pipeline = pipeline.to(device)
@@ -324,6 +325,7 @@ class End2End(object):
                                          self.model_reference,
                                         #  None,
                                          self.pose_guider,
+                                         self.image_encoder,
                                          device=self.device,
                                          rank=0,
                                          embedder_t5=self.embedder_t5,
