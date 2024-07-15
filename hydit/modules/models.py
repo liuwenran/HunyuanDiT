@@ -184,7 +184,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
             num_heads=16,
             mlp_ratio=4.0,
             log_fn=print,
-            # clip_img_embed_dim=1024,
+            clip_img_embed_dim=1024,
     ):
         super().__init__()
         self.args = args
@@ -213,11 +213,11 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
             nn.Linear(self.text_states_dim_t5 * 4, self.text_states_dim, bias=True),
         )
 
-        # self.mlp_clip_img_embed = nn.Sequential(
-        #     nn.Linear(clip_img_embed_dim, clip_img_embed_dim * 4, bias=True),
-        #     FP32_SiLU(),
-        #     nn.Linear(clip_img_embed_dim * 4, self.text_states_dim, bias=True),
-        # )
+        self.mlp_clip_img_embed = nn.Sequential(
+            nn.Linear(clip_img_embed_dim, clip_img_embed_dim * 4, bias=True),
+            FP32_SiLU(),
+            nn.Linear(clip_img_embed_dim * 4, self.text_states_dim, bias=True),
+        )
 
         # learnable replace
         self.text_embedding_padding = nn.Parameter(
@@ -281,7 +281,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
                 return_dict=True,
                 controls=None,
                 pose_embedding=None,
-                # clip_img_embedding=None,
+                clip_img_embedding=None,
                 ):
         """
         Forward pass of the encoder.
@@ -350,6 +350,8 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
         c = t + self.extra_embedder(extra_vec)  # [B, D]
         # c = t
 
+        image_states = self.mlp_clip_img_embed(clip_img_embedding)
+
         # add condition
         if pose_embedding is not None:
             x = x + pose_embedding
@@ -361,9 +363,9 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
                     skip = skips.pop() + controls.pop()
                 else:
                     skip = skips.pop()
-                x = block(x, c, text_states, freqs_cis_img, skip)   # (N, L, D)
+                x = block(x, c, image_states, freqs_cis_img, skip)   # (N, L, D)
             else:
-                x = block(x, c, text_states, freqs_cis_img)         # (N, L, D)
+                x = block(x, c, image_states, freqs_cis_img)         # (N, L, D)
 
             if layer < (self.depth // 2 - 1):
                 skips.append(x)

@@ -43,7 +43,7 @@ from torch.utils.data.dataset import ConcatDataset
 from torchviz import make_dot
 import shutil
 from PIL import Image
-from hydit.diffusion.pipeline_human_animation import StableDiffusionPipeline
+from transformers import CLIPVisionModelWithProjection
 
 class Net(nn.Module):
     def __init__(
@@ -84,6 +84,7 @@ class Net(nn.Module):
         uncond_fwd: bool = False,
         ref_pose_img=None,
         hand_depth_img=None,
+        clip_img_embedding=None,
     ):
         pose_embedding = self.pose_guider(tgt_pose_latents)
         if self.ref_pose_guider:
@@ -112,6 +113,7 @@ class Net(nn.Module):
                 sin_cis_img=sin_cis_img,
                 return_dict=return_dict,
                 controls=controls,
+                clip_img_embedding=clip_img_embedding,
             )
             
             self.reference_control_reader.update(self.reference_control_writer)
@@ -130,6 +132,7 @@ class Net(nn.Module):
             return_dict=return_dict,
             controls=controls,
             pose_embedding=pose_embedding,
+            clip_img_embedding=clip_img_embedding,
         )
 
         return model_pred
@@ -437,6 +440,11 @@ def main(args):
         hidden_size=hidden_size,
         num_tokens=num_tokens,
     )
+
+    image_enc = CLIPVisionModelWithProjection.from_pretrained(
+        args.clip_base_model_path,
+        subfolder="image_encoder",
+    ).to(device=device)
 
     assert args.deepspeed, f"Must enable deepspeed in this script: train_deepspeed.py"
     with deepspeed.zero.Init(data_parallel_group=torch.distributed.group.WORLD,
