@@ -686,7 +686,6 @@ class StableDiffusionPipeline(DiffusionPipeline, TextualInversionLoaderMixin, Lo
             cross_attention_kwargs.get("scale", None) if cross_attention_kwargs is not None else None
         )
 
-        import ipdb;ipdb.set_trace();
         prompt_embeds, negative_prompt_embeds, attention_mask, uncond_attention_mask = \
             self.encode_prompt(prompt,
                                device,

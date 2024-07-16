@@ -43,48 +43,48 @@ data:
   data_type: ['frames', 'frames', 'frames', 'frames', 'frames', 'frames', 'frames', 'frames', 'frames']
 
 
-# data2:
-#   train_width: 896
-#   train_height: 512
+data2:
+  train_width: 896
+  train_height: 512
 
-#   # Margin of frame indexes between ref and tgt images
-#   sample_margin: 30
-#   margin_strategy: far
+  # Margin of frame indexes between ref and tgt images
+  sample_margin: 30
+  margin_strategy: far
 
-#   vid_file: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/pexels_frames_train_info/train_vids.txt']
-#   video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/pexels_frames_train']
-#   pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/train_frames_dwpose_1024']
-#   data_type: ['frames']
+  vid_file: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/pexels_frames_train_info/train_vids.txt']
+  video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/pexels_frames_train']
+  pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/train_frames_dwpose_1024']
+  data_type: ['frames']
 
-# data3:
-#   train_width: 512
-#   train_height: 896
+data3:
+  train_width: 512
+  train_height: 896
 
-#   # Margin of frame indexes between ref and tgt images
-#   sample_margin: 30
-#   margin_strategy: far
+  # Margin of frame indexes between ref and tgt images
+  sample_margin: 30
+  margin_strategy: far
 
-#   vid_file: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/shijuezhongguo_shuping_info/dw_good_vids_720p.txt']
-#   # video_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/shuping/frames_png']
-#   video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/frames_png']
-#   # pose_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/shuping/dwpose_1024_good_vids_720p']
-#   pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/train_frames_dwpose_1024']
-#   data_type: ['frames']
+  vid_file: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/shijuezhongguo_shuping_info/dw_good_vids_720p.txt']
+  # video_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/shuping/frames_png']
+  video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/frames_png']
+  # pose_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/shuping/dwpose_1024_good_vids_720p']
+  pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/train_frames_dwpose_1024']
+  data_type: ['frames']
 
-# data4:
-#   train_width: 896
-#   train_height: 512
+data4:
+  train_width: 896
+  train_height: 512
 
-#   # Margin of frame indexes between ref and tgt images
-#   sample_margin: 30
-#   margin_strategy: far
+  # Margin of frame indexes between ref and tgt images
+  sample_margin: 30
+  margin_strategy: far
 
-#   vid_file: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/shijuezhongguo_hengping_info/dw_good_vids_720p_update.txt']
-#   # video_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/hengping/video_selected']
-#   video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/video_selected']
-#   # pose_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/hengping/dwpose_1024_good_vids_720p']
-#   pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/train_frames_dwpose_1024']
-#   data_type: ['shijuezhongguo_hengping_local']
+  vid_file: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/shijuezhongguo_hengping_info/dw_good_vids_720p_update.txt']
+  # video_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/hengping/video_selected']
+  video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/video_selected']
+  # pose_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/hengping/dwpose_1024_good_vids_720p']
+  pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/train_frames_dwpose_1024']
+  data_type: ['shijuezhongguo_hengping_local']
 
 
 control_type: pose

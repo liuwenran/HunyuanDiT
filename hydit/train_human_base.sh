@@ -1,4 +1,4 @@
-task_flag="ref_net_attn_inject_val_21k_uncond"                                # the task flag is used to identify folders.
+task_flag="base_human"                                # the task flag is used to identify folders.
 resume=./ckpts/t2i/model/                                    # checkpoint root for resume
 index_file=dataset/porcelain/jsons/porcelain.json            # index file for dataloader
 results_dir=./log_EXP                                        # save root for results
@@ -11,7 +11,7 @@ ckpt_every=2000                                              # create a ckpt eve
 ckpt_latest_every=5000                                       # create a ckpt named `latest.pt` every a few steps.
 
 
-sh $(dirname "$0")/run_g_human_animation.sh \
+sh $(dirname "$0")/run_g_human_base.sh \
     --task-flag ${task_flag} \
     --noise-schedule scaled_linear --beta-start 0.00085 --beta-end 0.03 \
     --predict-type v_prediction \

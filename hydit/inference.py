@@ -214,8 +214,10 @@ class End2End(object):
                                     ).half().to(self.device)    # Force to use fp16
             # Load model checkpoint
             model_path = '/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth'
+            # model_path = '/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-base_human/checkpoints/0010000.pt/mp_rank_00_model_states.pt'
             logger.info(f"Loading torch model {model_path}...")
             state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
+            # state_dict = state_dict['module']
             self.model.load_state_dict(state_dict)
 
             # dict_to_save = {}
