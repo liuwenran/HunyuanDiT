@@ -22,7 +22,7 @@ from transformers import BertModel, BertTokenizer, logging as tf_logging
 
 from hydit.config import get_args
 from hydit.constants import VAE_EMA_PATH, TEXT_ENCODER, TOKENIZER, T5_ENCODER
-from hydit.lr_scheduler import WarmupLR
+from hydit.lr_scheduler import WarmupLR, WarmupDecayLR
 from hydit.data_loader.arrow_load_stream import TextImageArrowStream
 from hydit.diffusion import create_diffusion
 from hydit.ds_config import deepspeed_config_from_args
@@ -146,6 +146,16 @@ def deepspeed_initialize(args, logger, model, opt, deepspeed_config):
 
     def get_learning_rate_scheduler(warmup_min_lr, lr, warmup_num_steps, opt):
         return WarmupLR(opt, warmup_min_lr, lr, warmup_num_steps)
+    
+    def get_learning_rate_scheduler_warmupdecay(warmup_min_lr, lr, warmup_num_steps, opt):
+        return WarmupDecayLR(opt, warmup_min_lr, lr, warmup_num_steps)
+
+    if args.lr_scheduler == "warmup":
+        get_lr_scheduler_func = get_learning_rate_scheduler
+    elif args.lr_scheduler == "warmupdecay":
+        get_lr_scheduler_func = get_learning_rate_scheduler_warmupdecay
+    else:
+        raise ValueError(f"Invalid lr_scheduler: {args.lr_scheduler}")
 
     logger.info(f"    Building scheduler with warmup_min_lr={args.warmup_min_lr}, warmup_num_steps={args.warmup_num_steps}")
     model, opt, _, scheduler = deepspeed.initialize(
@@ -153,7 +163,7 @@ def deepspeed_initialize(args, logger, model, opt, deepspeed_config):
         model_parameters=get_trainable_params(model),
         config_params=deepspeed_config,
         args=args,
-        lr_scheduler=partial(get_learning_rate_scheduler, args.warmup_min_lr, args.lr, args.warmup_num_steps) if args.warmup_num_steps > 0 else None,
+        lr_scheduler=partial(get_lr_scheduler_func, args.warmup_min_lr, args.lr, args.warmup_num_steps) if args.warmup_num_steps > 0 else None,
     )
     return model, opt, scheduler
 

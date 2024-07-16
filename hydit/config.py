@@ -110,6 +110,7 @@ def get_args(default_args=None):
 
     # Basic Setting
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--lr-scheduler", type=str, default='warmup', choices=['warmup', 'warmupdecay'])
     parser.add_argument("--epochs", type=int, default=1400)
     parser.add_argument("--max-training-steps", type=int, default=10_000_000)
     parser.add_argument("--gc-interval", type=int, default=40,
