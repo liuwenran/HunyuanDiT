@@ -544,8 +544,11 @@ def main(args):
     logger.info(" ****************************** Loading parameter ******************************")
     args.strict = False
     if args.resume is not None or len(args.resume) > 0:
-        resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
+        # resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
+        #                                 map_location=lambda storage, loc: storage)
+        resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-base_human/checkpoints/0010000.pt/mp_rank_00_model_states.pt',
                                         map_location=lambda storage, loc: storage)
+        resume_ckpt_module = resume_ckpt_module['module']
         state_dict_to_load = {}
         for key in resume_ckpt_module.keys():
             # if 'attn2.kv_proj.weight' in key:
