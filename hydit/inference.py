@@ -99,7 +99,7 @@ def _to_tuple(val):
     return val
 
 
-def get_pipeline(args, vae, text_encoder, tokenizer, model, device, rank,
+def get_pipeline(args, vae, text_encoder, tokenizer, model, image_encoder, device, rank,
                  embedder_t5, infer_mode, sampler=None):
     """
     Get scheduler and pipeline for sampling. The sampler and pipeline are both
@@ -143,6 +143,7 @@ def get_pipeline(args, vae, text_encoder, tokenizer, model, device, rank,
                                        progress_bar_config=progress_bar_config,
                                        embedder_t5=embedder_t5,
                                        infer_mode=infer_mode,
+                                       image_encoder=image_encoder,
                                        )
 
     pipeline = pipeline.to(device)
