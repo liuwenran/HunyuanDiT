@@ -223,7 +223,7 @@ class End2End(object):
             model_reference,
             do_classifier_free_guidance=True,
             mode="write",
-            batch_size=4,
+            batch_size=2,
             fusion_blocks="full",
             hidden_size=hidden_size,
             num_tokens=num_tokens,

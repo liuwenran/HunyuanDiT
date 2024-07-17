@@ -140,7 +140,7 @@ def print_tensor_info(tensor, tensor_name, file):
     file.write(f"grad_fn: {tensor.grad_fn}\n")
     file.write("-" * 50 + "\n")
 
-def deepspeed_initialize(args, logger, model, opt, deepspeed_config):
+def deepspeed_initialize(args, logger, model, opt, deepspeed_config, total_steps):
     logger.info(f"Initialize deepspeed...")
     logger.info(f"    Using deepspeed optimizer")
 
@@ -148,7 +148,7 @@ def deepspeed_initialize(args, logger, model, opt, deepspeed_config):
         return WarmupLR(opt, warmup_min_lr, lr, warmup_num_steps)
     
     def get_learning_rate_scheduler_warmupdecay(warmup_min_lr, lr, warmup_num_steps, opt):
-        return WarmupDecayLR(opt, warmup_min_lr, lr, warmup_num_steps)
+        return WarmupDecayLR(opt, total_steps, warmup_min_lr, lr, warmup_num_steps)
 
     if args.lr_scheduler == "warmup":
         get_lr_scheduler_func = get_learning_rate_scheduler
@@ -592,8 +592,10 @@ def main(args):
             param.requires_grad_(True)
 
     logger.info(f"    Training parts: {args.training_parts}")
+    iters_per_epoch = len(loader)
+    total_steps = args.epochs * iters_per_epoch // grad_accu_steps
 
-    net, opt, scheduler = deepspeed_initialize(args, logger, net, opt, deepspeed_config)
+    net, opt, scheduler = deepspeed_initialize(args, logger, net, opt, deepspeed_config, total_steps)
 
     # ===========================================================================
     # Training
@@ -606,7 +608,6 @@ def main(args):
     print(f"    Worker {rank} ready.")
     dist.barrier()
 
-    iters_per_epoch = len(loader)
     logger.info(" ****************************** Running training ******************************")
     logger.info(f"      Number GPUs:               {world_size}")
     logger.info(f"      Number training samples:   {len(dataset):,}")
@@ -617,7 +618,7 @@ def main(args):
     logger.info(f"      Batch size per device:     {batch_size}")
     logger.info(f"      Batch size all device:     {batch_size * world_size * grad_accu_steps:,} (world_size * batch_size * grad_accu_steps)")
     logger.info(f"      Gradient Accu steps:       {args.grad_accu_steps}")
-    logger.info(f"      Total optimization steps:  {args.epochs * iters_per_epoch // grad_accu_steps:,}")
+    logger.info(f"      Total optimization steps:  {total_steps:,}")
 
     logger.info(f"      Training epochs:           {start_epoch}/{args.epochs}")
     logger.info(f"      Training epoch steps:      {start_epoch_step:,}/{iters_per_epoch:,}")
