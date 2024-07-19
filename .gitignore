@@ -143,3 +143,4 @@ prompt_embeddings/
 weights/
 data/
 log_EXP/
+ckpts_v12/
