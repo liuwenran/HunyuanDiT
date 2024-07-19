@@ -192,9 +192,19 @@ def model_resume(args, model, ema, logger, len_loader):
             logger.info(f"    Resume main model from main states.")
             # resume_ckpt_module = torch.load(os.path.join(resume_path, 'pytorch_model_module.pt'),
             #                                 map_location=lambda storage, loc: storage)
-            resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
-                                        map_location=lambda storage, loc: storage)
-            model.load_state_dict(resume_ckpt_module, strict=args.strict)
+            # resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
+            #                             map_location=lambda storage, loc: storage)
+            logger.info(f"========== Resume pretrained model from main states {args.img_variation_resume_path}.")
+            resume_ckpt_module = torch.load(args.img_variation_resume_path, map_location=lambda storage, loc: storage)
+            resume_ckpt_module = resume_ckpt_module['module']
+            state_dict_to_load = {}
+            for key in resume_ckpt_module.keys():
+                # if 'attn2.kv_proj.weight' in key:
+                if 'mlp_clip_img_embed' in key:
+                    pass
+                else:
+                    state_dict_to_load[key] = resume_ckpt_module[key]
+            model.load_state_dict(state_dict_to_load, strict=args.strict)
         # Resume ema model
         if args.use_ema:
             if args.module_to_ema:

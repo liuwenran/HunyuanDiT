@@ -1,0 +1,12 @@
+data:
+  train_width: 512
+  train_height: 896
+
+  image_file: [
+             '/mnt/hwfile/mm_lol/liuwenran/pexels_image_dataset/image_img_id.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/pexels_image_dataset/image1_img_id.txt'
+             ]
+  image_root_path: [
+                    'private-dataset-pnorm/pexels-img/image/',
+                    'private-dataset-pnorm/pexels-img/image1/'
+                  ]
