@@ -453,7 +453,7 @@ def main(args):
     start_epoch_step = 0
     train_steps = 0
     # Resume checkpoint if needed
-    args.strict = False
+    args.strict = True
     if args.resume is not None or len(args.resume) > 0:
         model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
 

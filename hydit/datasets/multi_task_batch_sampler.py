@@ -11,11 +11,12 @@ class BatchSchedulerSampler(torch.utils.data.sampler.Sampler):
     """
     iterate over tasks and provide a random batch per task in each mini-batch
     """
-    def __init__(self, dataset, batch_size):
+    def __init__(self, dataset, batch_size, rank=0):
         self.dataset = dataset
         self.batch_size = batch_size
         self.number_of_datasets = len(dataset.datasets)
         self.largest_dataset_size = max([len(cur_dataset) for cur_dataset in dataset.datasets])
+        self.rank = rank
 
     def __len__(self):
         data_len = 0
@@ -26,9 +27,11 @@ class BatchSchedulerSampler(torch.utils.data.sampler.Sampler):
     def __iter__(self):
         samplers_list = []
         sampler_iterators = []
+        generator = torch.Generator()
+        generator.manual_seed(self.rank)
         for dataset_idx in range(self.number_of_datasets):
             cur_dataset = self.dataset.datasets[dataset_idx]
-            sampler = RandomSampler(cur_dataset)
+            sampler = RandomSampler(cur_dataset, generator=generator)
             samplers_list.append(sampler)
             cur_sampler_iterator = sampler.__iter__()
             sampler_iterators.append(cur_sampler_iterator)

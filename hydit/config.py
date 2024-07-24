@@ -39,7 +39,10 @@ def get_args(default_args=None):
     parser.add_argument("--text-len-t5", type=int, default=256, help="Token length of T5 text encoder output.")
     parser.add_argument("--clip-image-encoder-path", type=str, default="/mnt/petrelfs/liuwenran/.cache/huggingface/hub/models--lambdalabs--sd-image-variations-diffusers/snapshots/42bc0ee1726b141d49f519a6ea02ccfbf073db2e/image_encoder")
     parser.add_argument("--clip-img-embed-dim", type=int, default=768, help="Embedding dimension of CLIP image encoder.")
-    
+    # clip g
+    # --clip-image-encoder-path /mnt/petrelfs/liuwenran/.cache/huggingface/hub/models--laion--CLIP-ViT-bigG-14-laion2B-39B-b160k/snapshots/bc7788f151930d91b58474715fdce5524ad9a189 \
+    # --clip-img-embed-dim 1280 \
+
     # LoRA config
     parser.add_argument("--training-parts", type=str, default='all', choices=['all', 'lora'], help="Training parts")
     parser.add_argument("--rank", type=int, default=64, help="Rank of LoRA")

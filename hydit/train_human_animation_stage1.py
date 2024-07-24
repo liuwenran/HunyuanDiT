@@ -541,7 +541,7 @@ def main(args):
     dataset = ConcatDataset(dataset_list)
 
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, sampler=BatchSchedulerSampler(dataset, batch_size=batch_size), shuffle=False, num_workers=4
+        dataset, batch_size=batch_size, sampler=BatchSchedulerSampler(dataset, batch_size=batch_size, rank=rank), shuffle=False, num_workers=4
     )
 
     logger.info(f"    Dataset contains {len(dataset):,} images.")
@@ -557,7 +557,11 @@ def main(args):
     logger.info(" ****************************** Loading parameter ******************************")
     args.strict = False
     if args.resume is not None or len(args.resume) > 0:
-        resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
+        # resume_ckpt_module = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/weights/hunyuandit_converted.pth',
+        #                                 map_location=lambda storage, loc: storage)
+        pretrained_model_path = '/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-human_img_variation_pexels114_cliph_noproj_2/checkpoints/0026000.pt/mp_rank_00_model_states.pt'
+        logger.info(f"Loading {pretrained_model_path}")
+        resume_ckpt_module = torch.load(pretrained_model_path,
                                         map_location=lambda storage, loc: storage)
         state_dict_to_load = {}
         for key in resume_ckpt_module.keys():

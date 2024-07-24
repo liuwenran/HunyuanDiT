@@ -350,7 +350,8 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
         c = t + self.extra_embedder(extra_vec)  # [B, D]
         # c = t
 
-        image_states = self.mlp_clip_img_embed(clip_img_embedding)
+        # image_states = self.mlp_clip_img_embed(clip_img_embedding)
+        image_states = clip_img_embedding
         image_states = image_states.unsqueeze(1)
 
         # add condition

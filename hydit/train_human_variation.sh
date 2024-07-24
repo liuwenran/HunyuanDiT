@@ -1,4 +1,4 @@
-task_flag="human_img_variation_pexels114_clipg"                                # the task flag is used to identify folders.
+task_flag="human_img_variation_pexels114_cliph_noproj_2"                                # the task flag is used to identify folders.
 resume=./ckpts/t2i/model/                                    # checkpoint root for resume
 index_file=dataset/porcelain/jsons/porcelain.json            # index file for dataloader
 results_dir=./log_EXP                                        # save root for results
@@ -40,7 +40,7 @@ sh $(dirname "$0")/run_g_human_variation.sh \
     --epochs 10 \
     --reso-step 64 \
     --data-config ./dataset/human_animation_yamls/stage1_image_variation.yaml \
-    --img-variation-resume-path /mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-human_img_variation/checkpoints/0054000.pt/mp_rank_00_model_states.pt \
-    --clip-image-encoder-path /mnt/petrelfs/liuwenran/.cache/huggingface/hub/models--laion--CLIP-ViT-bigG-14-laion2B-39B-b160k/snapshots/bc7788f151930d91b58474715fdce5524ad9a189 \
-    --clip-img-embed-dim 1280 \
+    --img-variation-resume-path /mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-human_img_variation_pexels114_cliph_noproj/checkpoints/0030000.pt/mp_rank_00_model_states.pt \
+    --clip-image-encoder-path laion/CLIP-ViT-H-14-laion2B-s32B-b79K \
+    --clip-img-embed-dim 1024 \
     "$@"
