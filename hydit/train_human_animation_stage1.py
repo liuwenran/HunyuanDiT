@@ -43,7 +43,6 @@ from torch.utils.data.dataset import ConcatDataset
 from torchviz import make_dot
 import shutil
 from PIL import Image
-from hydit.diffusion.pipeline_human_animation import StableDiffusionPipeline
 
 class Net(nn.Module):
     def __init__(
@@ -538,7 +537,7 @@ def main(args):
     dataset = ConcatDataset(dataset_list)
 
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, sampler=BatchSchedulerSampler(dataset, batch_size=batch_size), shuffle=False, num_workers=4
+        dataset, batch_size=batch_size, sampler=BatchSchedulerSampler(dataset, batch_size=batch_size, rank=rank), shuffle=False, num_workers=4
     )
 
     logger.info(f"    Dataset contains {len(dataset):,} images.")
@@ -575,6 +574,9 @@ def main(args):
     pose_guider_dict = torch.load('weights/pose_guider.pt', map_location=lambda storage, loc: storage)
     pose_guider.load_state_dict(pose_guider_dict)
     del pose_guider_dict
+
+    resume_ckpt_net = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_576x1024_iter7k/checkpoints/0007000.pt/mp_rank_00_model_states.pt',map_location=lambda storage, loc: storage)
+    net.load_state_dict(resume_ckpt_net['module'])
 
     if args.use_fp16:
         net = Float16Module(net, args)

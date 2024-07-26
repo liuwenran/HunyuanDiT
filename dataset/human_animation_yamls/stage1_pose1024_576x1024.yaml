@@ -1,0 +1,153 @@
+data:
+  train_width: 576
+  train_height: 1024
+
+  # Margin of frame indexes between ref and tgt images
+  sample_margin: 30
+  margin_strategy: far
+
+  vid_file: [
+             '/mnt/hwfile/mm_lol/liuwenran/pexels_dataset/pexels_frames_train_info/good_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/cctv_datasets/cctv_realcap/realcap_videos_info/all_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/ubc_dataset/info/all_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/ubc_dataset_test/info/all_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/TikTok/info/all_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/douyin1/all_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/douyin2/info/all_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/mixamo_dataset/all_vids.txt',
+             '/mnt/hwfile/mm_lol/liuwenran/vroidhub_datasets/vids.txt'
+             ]
+  video_root_path: [
+                    '/mnt/hwfile/mm_lol/liuwenran/pexels_dataset/pexels_frames_train',
+                    '/mnt/hwfile/mm_lol/liuwenran/cctv_datasets/cctv_realcap/realcap_frames_train',
+                    '/mnt/hwfile/mm_lol/fangyq/share_data/UBC_dataset/train_frame',
+                    '/mnt/hwfile/mm_lol/fangyq/share_data/UBC_dataset/test_frame',
+                    '/mnt/hwfile/mm_lol/fangyq/share_data/TikTok_data/images',
+                    '/mnt/hwfile/mm_lol/fangyq/share_data/douyin_share/douyin1_train',
+                    '/mnt/hwfile/mm_lol/liuwenran/douyin2/train_frames',
+                    '/mnt/hwfile/mm_lol/fangyq/share_data/blender_dataset/blender_train',
+                    '/mnt/hwfile/mm_lol/fangyq/share_data/VRoidDataset/frames'
+                    ]
+  pose_root_path: [
+                  '/mnt/hwfile/mm_lol/liuwenran/pexels_dataset/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/cctv_datasets/cctv_realcap/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/ubc_dataset/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/ubc_dataset_test/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/TikTok/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/douyin1/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/douyin2/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/mixamo_dataset/train_frames_dwpose_1024',
+                  '/mnt/hwfile/mm_lol/liuwenran/vroidhub_datasets/train_frames_dwpose_1024'
+                  ]
+                  
+  data_type: ['frames', 'frames', 'frames', 'frames', 'frames', 'frames', 'frames', 'frames', 'frames']
+
+
+data2:
+  train_width: 1024
+  train_height: 576
+
+  # Margin of frame indexes between ref and tgt images
+  sample_margin: 30
+  margin_strategy: far
+
+  vid_file: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/pexels_frames_train_info/train_vids.txt']
+  video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/pexels_frames_train']
+  pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/pexels_dataset_horizontal/train_frames_dwpose_1024']
+  data_type: ['frames']
+
+data3:
+  train_width: 576
+  train_height: 1024
+
+  # Margin of frame indexes between ref and tgt images
+  sample_margin: 30
+  margin_strategy: far
+
+  vid_file: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/shijuezhongguo_shuping_info/dw_good_vids_720p.txt']
+  # video_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/shuping/frames_png']
+  video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/frames_png']
+  # pose_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/shuping/dwpose_1024_good_vids_720p']
+  pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/shuping/train_frames_dwpose_1024']
+  data_type: ['frames']
+
+data4:
+  train_width: 1024
+  train_height: 576
+
+  # Margin of frame indexes between ref and tgt images
+  sample_margin: 30
+  margin_strategy: far
+
+  vid_file: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/shijuezhongguo_hengping_info/dw_good_vids_720p_update.txt']
+  # video_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/hengping/video_selected']
+  video_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/video_selected']
+  # pose_root_path: ['liuwenran:s3://mmediting-ckpt/shijuezhongguo_720p/hengping/dwpose_1024_good_vids_720p']
+  pose_root_path: ['/mnt/hwfile/mm_lol/liuwenran/shijuezhongguo_dataset/hengping/train_frames_dwpose_1024']
+  data_type: ['shijuezhongguo_hengping_local']
+
+
+control_type: pose
+
+use_depth_enhance: False
+use_ref_pose_guider: False
+use_hand_depth: False
+
+# solver:
+#   gradient_accumulation_steps: 1
+#   mixed_precision: 'fp16'
+#   enable_xformers_memory_efficient_attention: True 
+#   gradient_checkpointing: False 
+#   max_train_steps: 120000
+#   max_grad_norm: 1.0
+#   # lr
+#   learning_rate: 1.0e-5
+#   scale_lr: False 
+#   lr_warmup_steps: 2000
+#   lr_scheduler: 'constant'
+
+#   # optimizer
+#   use_8bit_adam: False 
+#   adam_beta1: 0.9
+#   adam_beta2: 0.999
+#   adam_weight_decay:  1.0e-2
+#   adam_epsilon: 1.0e-8
+
+# val:
+#   validation_steps: 1000
+#   validation_ref_images: /mnt/petrelfs/liuwenran/repos/HumanAnimation/data/stage1_validation/val_image.txt
+#   validation_tgt_images: /mnt/petrelfs/liuwenran/repos/HumanAnimation/data/stage1_validation/vroid_dance_pose_1024.txt
+
+
+# noise_scheduler_kwargs:
+#   num_train_timesteps: 1000
+#   beta_start:          0.00085
+#   beta_end:            0.012
+#   beta_schedule:       "scaled_linear"
+#   steps_offset:        1
+#   clip_sample:         false
+
+# base_model_path: '/mnt/petrelfs/liuwenran/.cache/huggingface/hub/models--lambdalabs--sd-image-variations-diffusers/snapshots/42bc0ee1726b141d49f519a6ea02ccfbf073db2e'
+# vae_model_path: '/mnt/petrelfs/liuwenran/forks/Moore-AnimateAnyone/pretrained_weights/sd-vae-ft-mse'
+# image_encoder_path: '/mnt/petrelfs/liuwenran/.cache/huggingface/hub/models--lambdalabs--sd-image-variations-diffusers/snapshots/42bc0ee1726b141d49f519a6ea02ccfbf073db2e/image_encoder'
+# controlnet_openpose_path: '/mnt/petrelfs/liuwenran/.cache/huggingface/hub/models--lllyasviel--control_v11p_sd15_openpose/snapshots/9ae9f970358db89e211b87c915f9535c6686d5ba/diffusion_pytorch_model.safetensors'
+# # controlnet_hed_path: '/mnt/petrelfs/liuwenran/.cache/huggingface/hub/models--lllyasviel--control_v11p_sd15_softedge/snapshots/b5bcad0c48e9b12f091968cf5eadbb89402d6bc9/diffusion_pytorch_model.safetensors'
+
+# # pretrained_weight: /mnt/petrelfs/liuwenran/forks/Moore-AnimateAnyone/exp_output/stage1/checkpoint-30000/model.safetensors
+
+# weight_dtype: 'fp16'  # [fp16, fp32]
+# uncond_ratio: 0.1
+# noise_offset: 0.05
+# snr_gamma: 5.0
+# enable_zero_snr: True 
+# pose_guider_pretrain: True
+# control_type: pose
+# use_depth_enhance: False
+
+
+# seed: 12580
+# resume_from_checkpoint: 'latest'
+# checkpointing_steps: 2000
+# save_model_epoch_interval: 5
+# exp_name: 'stage1_21k_pose1024'
+# output_dir: './exp_output'  
