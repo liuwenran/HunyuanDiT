@@ -415,6 +415,7 @@ def main(args):
     model = HUNYUAN_DIT_MODELS[args.model](args,
                                     input_size=latent_size,
                                     log_fn=logger.info,
+                                    clip_img_embed_dim=args.clip_img_embed_dim,
                                     )
 
     # model_setting = 'DiT-g/2-ref10'
@@ -422,6 +423,7 @@ def main(args):
     model_reference = HUNYUAN_DIT_MODELS[model_setting](args,
                                         input_size=latent_size,
                                         log_fn=logger.info,
+                                        clip_img_embed_dim=args.clip_img_embed_dim,
                                         )
     
     pose_guider = PoseGuider()
@@ -563,6 +565,9 @@ def main(args):
         logger.info(f"Loading {pretrained_model_path}")
         resume_ckpt_module = torch.load(pretrained_model_path,
                                         map_location=lambda storage, loc: storage)
+        resume_ckpt_module = resume_ckpt_module['module']
+        # model.load_state_dict(resume_ckpt_module, strict=args.strict)
+        
         state_dict_to_load = {}
         for key in resume_ckpt_module.keys():
             # if 'attn2.kv_proj.weight' in key:

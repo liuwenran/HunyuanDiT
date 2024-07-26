@@ -1,4 +1,4 @@
-task_flag="ref_net_attn_inject_val_5k_clipimg_cliph_ranksample"                                # the task flag is used to identify folders.
+task_flag="ref_net_attn_inject_val_5k_clipimg_cliph_ranksample_gpu8"                                # the task flag is used to identify folders.
 resume=./ckpts/t2i/model/                                    # checkpoint root for resume
 index_file=dataset/porcelain/jsons/porcelain.json            # index file for dataloader
 results_dir=./log_EXP                                        # save root for results
@@ -41,4 +41,5 @@ sh $(dirname "$0")/run_g_human_animation.sh \
     --reso-step 32 \
     --data-config ./dataset/human_animation_yamls/stage1_pose1024.yaml \
     --clip-image-encoder-path laion/CLIP-ViT-H-14-laion2B-s32B-b79K \
+    --clip-img-embed-dim 1024 \
     "$@"
