@@ -575,7 +575,8 @@ def main(args):
     pose_guider.load_state_dict(pose_guider_dict)
     del pose_guider_dict
 
-    resume_ckpt_net = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_576x1024_iter7k/checkpoints/0007000.pt/mp_rank_00_model_states.pt',map_location=lambda storage, loc: storage)
+    # resume_ckpt_net = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_576x1024_iter7k/checkpoints/0007000.pt/mp_rank_00_model_states.pt',map_location=lambda storage, loc: storage)
+    resume_ckpt_net = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_1024x1024/checkpoints/0010000.pt/mp_rank_00_model_states.pt',map_location=lambda storage, loc: storage)
     net.load_state_dict(resume_ckpt_net['module'])
 
     if args.use_fp16:
