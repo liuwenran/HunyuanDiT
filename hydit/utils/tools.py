@@ -117,6 +117,21 @@ def model_load_state_dict(model, resume_path, args):
     model.load_state_dict(resume_ckpt_module, strict=args.strict)
     return model
 
+def model_prepare_dict_less_than_40(param_dict, new_model_depth):
+    new_dict = {}
+    for key in param_dict.keys():
+        if 'blocks' in key:
+            key_split = key.split('.')
+            blocks_ind = int(key_split[1])
+            if blocks_ind >= new_model_depth // 2 and blocks_ind < 40 - new_model_depth // 2:
+                new_blocks_ind = str(blocks_ind - new_model_depth // 2)
+                key_split[1] = new_blocks_ind
+                new_key = '.'.join(key_split)
+                new_dict[new_key] = param_dict[key]
+        else:
+            new_dict[key] = param_dict[key]
+    return new_dict
+
 def model_copy_to_reference_net(model, model_reference):
     model_blocks_depth = len(model.blocks)
     model_reference_blocks_depth = len(model_reference.blocks)

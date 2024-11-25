@@ -510,6 +510,7 @@ class HunYuanDiT(ModelMixin, ConfigMixin, PeftAdapterMixin):
 HUNYUAN_DIT_CONFIG = {
     'DiT-g/2': {'depth': 40, 'hidden_size': 1408, 'patch_size': 2, 'num_heads': 16, 'mlp_ratio': 4.3637},
     'DiT-XL/2': {'depth': 28, 'hidden_size': 1152, 'patch_size': 2, 'num_heads': 16},
+    'DiT-g/2-depth20': {'depth': 20, 'hidden_size': 1408, 'patch_size': 2, 'num_heads': 16, 'mlp_ratio': 4.3637},
 }
 
 def DiT_g_2(args, **kwargs):
@@ -520,10 +521,13 @@ def DiT_g_2_ref10(args, **kwargs):
     return HunYuanDiT(args, depth=10, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
 def DiT_g_2_ref6(args, **kwargs):
     return HunYuanDiT(args, depth=6, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
+def DiT_g_2_depth20(args, **kwargs):
+    return HunYuanDiT(args, depth=20, hidden_size=1408, patch_size=2, num_heads=16, mlp_ratio=4.3637, **kwargs)
 
 HUNYUAN_DIT_MODELS = {
     'DiT-g/2':  DiT_g_2,
     'DiT-XL/2': DiT_XL_2,
     'DiT-g/2-ref10': DiT_g_2_ref10,
     'DiT-g/2-ref6': DiT_g_2_ref6,
+    'DiT-g/2-depth20': DiT_g_2_depth20,
 }

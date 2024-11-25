@@ -30,7 +30,7 @@ from hydit.modules.ema import EMA
 from hydit.modules.fp16_layers import Float16Module
 from hydit.modules.models import HUNYUAN_DIT_MODELS, HunYuanDiT
 from hydit.modules.posemb_layers import init_image_posemb
-from hydit.utils.tools import create_logger, set_seeds, create_exp_folder, model_resume, get_trainable_params, model_copy_to_reference_net
+from hydit.utils.tools import create_logger, set_seeds, create_exp_folder, model_resume, get_trainable_params, model_copy_to_reference_net, model_prepare_dict_less_than_40
 from IndexKits.index_kits import ResolutionGroup
 from IndexKits.index_kits.sampler import DistributedSamplerWithStartIndex, BlockDistributedSampler
 from peft import LoraConfig, get_peft_model
@@ -565,6 +565,7 @@ def main(args):
                 pass
             else:
                 state_dict_to_load[key] = resume_ckpt_module[key]
+        state_dict_to_load = model_prepare_dict_less_than_40(state_dict_to_load, 20)
         model.load_state_dict(state_dict_to_load, strict=args.strict)
         # model, ema, start_epoch, start_epoch_step, train_steps = model_resume(args, model, ema, logger, len(loader))
 
@@ -576,8 +577,8 @@ def main(args):
     del pose_guider_dict
 
     # resume_ckpt_net = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_576x1024_iter7k/checkpoints/0007000.pt/mp_rank_00_model_states.pt',map_location=lambda storage, loc: storage)
-    resume_ckpt_net = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_1024x1024/checkpoints/0010000.pt/mp_rank_00_model_states.pt',map_location=lambda storage, loc: storage)
-    net.load_state_dict(resume_ckpt_net['module'])
+    # resume_ckpt_net = torch.load('/mnt/petrelfs/liuwenran/forks/HunyuanDiT/log_EXP/195-ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_1024x1024/checkpoints/0010000.pt/mp_rank_00_model_states.pt',map_location=lambda storage, loc: storage)
+    # net.load_state_dict(resume_ckpt_net['module'])
 
     if args.use_fp16:
         net = Float16Module(net, args)

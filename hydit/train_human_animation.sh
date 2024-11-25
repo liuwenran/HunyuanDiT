@@ -1,4 +1,4 @@
-task_flag="ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_1024x1024_iter10k_resume"                                # the task flag is used to identify folders.
+task_flag="ref_net_attn_inject_val_21k_uncond_basehuman_ranksampler_576x1024_depth20"                                # the task flag is used to identify folders.
 resume=./ckpts/t2i/model/                                    # checkpoint root for resume
 index_file=dataset/porcelain/jsons/porcelain.json            # index file for dataloader
 results_dir=./log_EXP                                        # save root for results
@@ -39,5 +39,6 @@ sh $(dirname "$0")/run_g_human_animation.sh \
     --use-zero-stage 2 \
     --epochs 10 \
     --reso-step 32 \
-    --data-config ./dataset/human_animation_yamls/stage1_pose1024_1024x1024.yaml \
+    --model 'DiT-g/2-depth20' \
+    --data-config ./dataset/human_animation_yamls/stage1_pose1024_576x1024.yaml \
     "$@"
